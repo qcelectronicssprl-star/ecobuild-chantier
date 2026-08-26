@@ -1,0 +1,3329 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Ecobuild — Gestion de Chantier BTP</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<!-- Firebase SDK (compat v9) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+:root{
+  --eco:#1B4F3A;--eco-l:#2E7D5E;--eco-xl:#D1FAE5;
+  --ocre:#C9892A;--ocre-l:#E8B85A;--ocre-pale:#FEF3C7;
+  --nuit:#0F1F2E;--ardoise:#2D4A6A;--gris:#556070;--gris-l:#9EB0C0;
+  --ivoire:#F4F7F6;--blanc:#FAFCFB;--border:#D5E0DA;
+  --rouge:#B91C1C;--rouge-l:#FEE2E2;
+  --bleu:#1D4ED8;--bleu-l:#DBEAFE;
+  --jaune:#D97706;--jaune-l:#FEF3C7;
+  --violet:#6D28D9;--violet-l:#EDE9FE;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--ivoire);color:var(--nuit);min-height:100vh;overflow-x:hidden}
+
+/* SIDEBAR */
+.sidebar{position:fixed;top:0;left:0;width:230px;height:100vh;background:var(--nuit);display:flex;flex-direction:column;z-index:200;box-shadow:3px 0 20px rgba(0,0,0,.2)}
+.sb-brand{padding:20px 18px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
+.sb-logo{display:flex;align-items:center;gap:10px;margin-bottom:2px}
+.eco-logo{width:36px;height:36px;background:var(--eco);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0}
+.sb-name{font-family:'Cormorant Garamond',serif;font-size:1.15rem;font-weight:700;color:#fff}
+.sb-sub{font-size:.58rem;color:var(--gris-l);letter-spacing:1.5px;text-transform:uppercase;margin-top:1px}
+.sb-nav{flex:1;padding:10px 10px;overflow-y:auto}
+.sb-group{font-size:.57rem;letter-spacing:2px;text-transform:uppercase;color:var(--gris-l);padding:10px 8px 3px;font-weight:700}
+.nav-btn{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;cursor:pointer;color:var(--gris-l);font-size:.77rem;font-weight:500;transition:all .15s;border:none;background:none;width:100%;text-align:left;margin-bottom:2px}
+.nav-btn:hover{background:rgba(255,255,255,.07);color:#fff}
+.nav-btn.active{background:var(--eco);color:#fff;box-shadow:0 2px 10px rgba(27,79,58,.4)}
+.nav-btn .ni{width:20px;text-align:center;font-size:.9rem;flex-shrink:0}
+.nav-btn .nb{font-size:.58rem;background:var(--ocre);color:var(--nuit);padding:1px 5px;border-radius:8px;font-weight:700;margin-left:auto}
+.sb-foot{padding:12px 16px;border-top:1px solid rgba(255,255,255,.07);font-size:.63rem;color:var(--gris-l);line-height:1.6}
+.sb-foot strong{color:var(--ocre);display:block}
+
+/* MAIN */
+.main{margin-left:230px;min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:var(--blanc);border-bottom:1px solid var(--border);padding:0 30px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 8px rgba(0,0,0,.05)}
+.page-title{font-family:'Cormorant Garamond',serif;font-size:1.15rem;font-weight:700}
+.page-title span{color:var(--eco)}
+.tb-right{display:flex;align-items:center;gap:10px}
+.tb-badge{background:var(--eco-xl);border:1px solid var(--eco-l);color:var(--eco);font-size:.67rem;font-weight:700;padding:3px 12px;border-radius:12px}
+.content{flex:1;padding:26px 30px 60px}
+.view{display:none}.view.active{display:block}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:22px}
+.kpi{background:var(--blanc);border:1px solid var(--border);border-radius:8px;padding:14px 16px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%}
+.kpi.eco::before{background:var(--eco)}
+.kpi.ocre::before{background:var(--ocre)}
+.kpi.rouge::before{background:var(--rouge)}
+.kpi.bleu::before{background:var(--bleu)}
+.kpi.violet::before{background:var(--violet)}
+.kpi-label{font-size:.6rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--gris-l);font-weight:700;margin-bottom:5px}
+.kpi-val{font-family:'Cormorant Garamond',serif;font-size:1.7rem;font-weight:700;color:var(--nuit);line-height:1}
+.kpi-sub{font-size:.67rem;color:var(--gris);margin-top:3px}
+
+/* CARDS */
+.card{background:var(--blanc);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px}
+.card-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--blanc)}
+.card-head h3{font-family:'Cormorant Garamond',serif;font-size:.95rem;font-weight:700;display:flex;align-items:center;gap:7px}
+.card-body{padding:16px}
+
+/* FORMS */
+.form-row{display:grid;gap:10px;margin-bottom:10px}
+.form-row.c2{grid-template-columns:1fr 1fr}
+.form-row.c3{grid-template-columns:1fr 1fr 1fr}
+.form-row.c4{grid-template-columns:1fr 1fr 1fr 1fr}
+.form-row.c5{grid-template-columns:1fr 1fr 1fr 1fr 1fr}
+.field{display:flex;flex-direction:column;gap:3px}
+.field label{font-size:.67rem;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.5px}
+.field input,.field select,.field textarea{padding:7px 9px;border:1px solid var(--border);border-radius:5px;background:var(--ivoire);font-family:'Inter',sans-serif;font-size:.82rem;color:var(--nuit);transition:border-color .15s,box-shadow .15s}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--eco);box-shadow:0 0 0 3px rgba(27,79,58,.1);background:#fff}
+.field textarea{resize:vertical;min-height:60px}
+
+/* BOUTONS */
+.btn{padding:7px 16px;border-radius:5px;font-family:'Inter',sans-serif;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .15s;border:none;display:inline-flex;align-items:center;gap:5px}
+.btn-eco{background:var(--eco);color:#fff}.btn-eco:hover{background:var(--eco-l)}
+.btn-ocre{background:var(--ocre);color:#fff}.btn-ocre:hover{background:var(--ocre-l)}
+.btn-sec{background:none;color:var(--gris);border:1px solid var(--border)}.btn-sec:hover{border-color:var(--eco);color:var(--eco)}
+.btn-rouge{background:var(--rouge);color:#fff}.btn-rouge:hover{filter:brightness(1.1)}
+.btn-bleu{background:var(--bleu);color:#fff}.btn-bleu:hover{filter:brightness(1.1)}
+.btn-sm{padding:5px 11px;font-size:.71rem}
+.btn-xs{padding:3px 8px;font-size:.67rem;border-radius:4px}
+
+/* TABLEAU */
+.tbl{width:100%;border-collapse:collapse;font-size:.78rem}
+.tbl th{background:var(--nuit);color:#fff;padding:8px 11px;text-align:left;font-weight:600;font-size:.67rem;letter-spacing:.5px}
+.tbl td{padding:8px 11px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:nth-child(even) td{background:var(--ivoire)}
+.tbl tr:hover td{background:var(--eco-xl)}
+.tbl .actions{display:flex;gap:4px;flex-wrap:wrap}
+.tbl-num{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+
+/* BADGES */
+.badge{display:inline-block;padding:2px 8px;border-radius:9px;font-size:.63rem;font-weight:700}
+.b-planifie{background:#F3F4F6;color:#6B7280}
+.b-encours{background:var(--bleu-l);color:var(--bleu)}
+.b-termine{background:var(--eco-xl);color:var(--eco)}
+.b-suspendu{background:var(--rouge-l);color:var(--rouge)}
+.b-mo{background:var(--eco-xl);color:var(--eco)}
+.b-mat{background:var(--ocre-pale);color:var(--ocre)}
+.b-ss{background:var(--violet-l);color:var(--violet)}
+.b-eq{background:var(--bleu-l);color:var(--bleu)}
+.b-fg{background:#F3F4F6;color:#6B7280}
+.b-ok{background:var(--eco-xl);color:var(--eco)}
+.b-alerte{background:var(--rouge-l);color:var(--rouge)}
+.b-depasse{background:var(--rouge-l);color:var(--rouge)}
+
+/* BARRES */
+.prog-wrap{background:var(--border);border-radius:4px;height:7px;overflow:hidden;min-width:60px}
+.prog-fill{height:100%;border-radius:4px;transition:width .4s}
+.pf-eco{background:var(--eco)}
+.pf-ocre{background:var(--ocre)}
+.pf-rouge{background:var(--rouge)}
+
+/* TABS */
+.tabs{display:flex;gap:3px;margin-bottom:16px;background:var(--eco-xl);padding:4px;border-radius:6px;border:1px solid var(--border)}
+.tab{padding:6px 14px;border-radius:4px;border:none;background:none;font-family:'Inter',sans-serif;font-size:.74rem;font-weight:500;color:var(--gris);cursor:pointer;transition:all .15s}
+.tab.active{background:#fff;color:var(--eco);font-weight:700;box-shadow:0 1px 4px rgba(27,79,58,.12)}
+
+/* Ligne dépenses */
+.dep-table{width:100%;border-collapse:collapse;font-size:.77rem;margin-bottom:8px}
+.dep-table th{background:var(--eco-xl);padding:6px 9px;text-align:left;font-weight:700;font-size:.65rem;color:var(--eco);border-bottom:1px solid var(--border)}
+.dep-table td{padding:6px 9px;border-bottom:1px solid var(--border)}
+.dep-table td input,.dep-table td select{height:28px;padding:0 6px;font-size:.75rem;border:1px solid var(--border);border-radius:3px;width:100%;background:var(--ivoire)}
+.dep-table tfoot td{font-weight:700;background:var(--eco-xl);border-top:2px solid var(--eco-l)}
+
+/* Budget gauge */
+.budget-gauge{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.gauge-label{font-size:.72rem;color:var(--gris);flex-shrink:0;width:110px}
+.gauge-val{font-size:.75rem;font-weight:700;flex-shrink:0;width:90px;text-align:right}
+
+/* Grille projets */
+.projet-card{background:var(--blanc);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:14px;transition:box-shadow .2s}
+.projet-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.pc-head{padding:14px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.pc-head-left{display:flex;align-items:center;gap:10px}
+.pc-type-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.pc-name{font-family:'Cormorant Garamond',serif;font-size:1rem;font-weight:700}
+.pc-ref{font-size:.68rem;color:var(--gris-l);margin-top:1px}
+.pc-body{padding:16px 18px;border-top:1px solid var(--border);display:none}
+.pc-body.open{display:block}
+.pc-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+.pc-stat{text-align:center;padding:10px;background:var(--ivoire);border-radius:6px}
+.pc-stat-val{font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:700;color:var(--nuit)}
+.pc-stat-lbl{font-size:.62rem;color:var(--gris-l);margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
+
+/* Catégories budget couleurs */
+.cat-colors{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px}
+.cat-box{border-radius:6px;padding:10px;text-align:center}
+.cat-box .cat-val{font-weight:700;font-size:.9rem}
+.cat-box .cat-lbl{font-size:.62rem;margin-top:2px;opacity:.8}
+.c-mo{background:var(--eco-xl);color:var(--eco)}
+.c-mat{background:var(--ocre-pale);color:var(--ocre)}
+.c-ss{background:var(--violet-l);color:var(--violet)}
+.c-eq{background:var(--bleu-l);color:var(--bleu)}
+.c-fg{background:#F3F4F6;color:#374151}
+
+@media print{
+  .sidebar,.topbar,.no-print{display:none!important}
+  .main{margin-left:0}
+  .content{padding:0}
+  .view{display:block!important}
+  .view:not(.active){display:none!important}
+}
+/* ── GRAPHIQUES ─────────────────────────────────*/
+.chart-wrap{position:relative;width:100%;height:220px;}
+.chart-wrap canvas{position:absolute;inset:0;}
+.chart-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--gris);}
+.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+.chart-empty{display:flex;align-items:center;justify-content:center;height:220px;color:var(--gris-l);font-size:.82rem;flex-direction:column;gap:8px;}
+.chart-tabs{display:flex;gap:4px;margin-bottom:12px;}
+.chart-tab{padding:4px 12px;border-radius:4px;border:1px solid var(--border);background:none;font-family:'Inter',sans-serif;font-size:.72rem;font-weight:500;color:var(--gris);cursor:pointer;transition:all .15s;}
+.chart-tab.active{background:var(--eco);color:#fff;border-color:var(--eco);}
+
+/* ── LOGIN SCREEN ──────────────────────────────── */
+#login-screen{
+  position:fixed;inset:0;background:var(--nuit);
+  display:flex;align-items:center;justify-content:center;
+  z-index:9999;
+}
+.login-box{
+  background:var(--blanc);border-radius:12px;
+  padding:40px 44px;width:380px;
+  box-shadow:0 20px 60px rgba(0,0,0,.4);
+  text-align:center;
+}
+.login-logo{
+  width:54px;height:54px;background:var(--eco);
+  border-radius:10px;display:flex;align-items:center;
+  justify-content:center;font-size:1.6rem;
+  margin:0 auto 16px;
+}
+.login-title{
+  font-family:'Cormorant Garamond',serif;
+  font-size:1.5rem;font-weight:700;color:var(--nuit);margin-bottom:4px;
+}
+.login-sub{font-size:.75rem;color:var(--gris-l);margin-bottom:28px;}
+.login-field{text-align:left;margin-bottom:14px;}
+.login-field label{font-size:.68rem;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;}
+.login-field input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:6px;font-family:'Inter',sans-serif;font-size:.88rem;color:var(--nuit);background:var(--ivoire);}
+.login-field input:focus{outline:none;border-color:var(--eco);box-shadow:0 0 0 3px rgba(27,79,58,.1);}
+.login-btn{width:100%;padding:11px;background:var(--eco);color:#fff;border:none;border-radius:6px;font-family:'Inter',sans-serif;font-size:.88rem;font-weight:700;cursor:pointer;margin-top:4px;transition:background .15s;}
+.login-btn:hover{background:var(--eco-l);}
+.login-err{color:var(--rouge);font-size:.75rem;margin-top:10px;display:none;}
+
+/* Bandeau utilisateur connecté */
+.user-bar{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 16px;border-top:1px solid rgba(255,255,255,.07);
+  margin-top:auto;
+}
+.user-avatar{
+  width:30px;height:30px;border-radius:50%;
+  background:var(--eco);display:flex;align-items:center;
+  justify-content:center;font-size:.8rem;font-weight:700;
+  color:#fff;flex-shrink:0;
+}
+.user-info{flex:1;min-width:0;}
+.user-name{font-size:.75rem;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-role{font-size:.6rem;color:var(--gris-l);margin-top:1px;}
+.logout-btn{background:none;border:none;color:var(--gris-l);cursor:pointer;font-size:.9rem;padding:2px;transition:color .15s;}
+.logout-btn:hover{color:var(--rouge);}
+
+/* Verrou de module */
+.module-locked{
+  position:relative;pointer-events:none;opacity:.45;
+  user-select:none;
+}
+.lock-overlay{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  background:rgba(15,31,46,.55);backdrop-filter:blur(2px);
+  border-radius:8px;z-index:10;pointer-events:auto;
+}
+.lock-overlay .lock-icon{font-size:2.2rem;margin-bottom:8px;}
+.lock-overlay p{color:#fff;font-size:.82rem;font-weight:600;}
+
+/* ── ADMIN ─────────────────────────────────────── */
+.role-badge{display:inline-block;padding:2px 9px;border-radius:9px;font-size:.63rem;font-weight:700;}
+.rb-admin{background:#FEF3C7;color:#92400E;}
+.rb-chef{background:var(--eco-xl);color:var(--eco);}
+.rb-comptable{background:var(--bleu-l);color:var(--bleu);}
+.rb-consultant{background:var(--violet-l);color:var(--violet);}
+.rb-lecture{background:#F3F4F6;color:#6B7280;}
+
+.perm-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:6px 0;}
+.perm-cb{display:flex;align-items:center;gap:4px;font-size:.68rem;color:var(--gris);cursor:pointer;}
+.perm-cb input{width:13px;height:13px;accent-color:var(--eco);}
+
+/* ── MODAL ÉDITION ──────────────────────────────── */
+.modal-overlay{position:fixed;inset:0;background:rgba(15,31,46,.6);display:flex;align-items:center;justify-content:center;z-index:9000;backdrop-filter:blur(2px);}
+.modal-box{background:var(--blanc);border-radius:10px;padding:28px 30px;width:780px;max-width:96vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border);}
+.modal-title{font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:700;}
+.modal-close{background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--gris-l);padding:2px 8px;border-radius:4px;transition:all .15s;}
+.modal-close:hover{background:var(--rouge-l);color:var(--rouge);}
+
+/* ══ ÉCRAN CONFIGURATION FIREBASE ══ */
+#firebase-setup{position:fixed;inset:0;background:linear-gradient(135deg,#0F1F2E 0%,#1B4F3A 100%);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;}
+.fs-box{background:#fff;border-radius:14px;padding:36px 40px;width:660px;max-width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 30px 80px rgba(0,0,0,.5);}
+.fs-logo{font-size:2.4rem;text-align:center;margin-bottom:8px}
+.fs-title{font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:700;text-align:center;color:var(--nuit);margin-bottom:4px}
+.fs-sub{text-align:center;font-size:.78rem;color:var(--gris);margin-bottom:24px}
+.fs-step{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;background:var(--ivoire)}
+.fs-num{width:26px;height:26px;border-radius:50%;background:var(--eco);color:#fff;font-size:.75rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.fs-step-body{font-size:.78rem;color:var(--nuit);line-height:1.6}
+.fs-step-body strong{color:var(--eco)}
+.fs-step-body code{background:#f0f0f0;padding:1px 5px;border-radius:3px;font-size:.74rem;font-family:monospace}
+.fs-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:18px 0}
+.fs-field{display:flex;flex-direction:column;gap:3px}
+.fs-field label{font-size:.62rem;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.5px}
+.fs-field input{padding:7px 9px;border:1px solid var(--border);border-radius:5px;background:var(--ivoire);font-size:.78rem;color:var(--nuit);font-family:monospace}
+.fs-field input:focus{outline:none;border-color:var(--eco);box-shadow:0 0 0 3px rgba(27,79,58,.1);background:#fff}
+.fs-field.full{grid-column:span 2}
+.fs-btn{width:100%;padding:11px;background:var(--eco);color:#fff;border:none;border-radius:7px;font-family:'Inter',sans-serif;font-size:.85rem;font-weight:700;cursor:pointer;margin-top:6px;transition:background .15s}
+.fs-btn:hover{background:var(--eco-l)}
+.fs-err{background:var(--rouge-l);color:var(--rouge);border:1px solid #fca5a5;border-radius:6px;padding:8px 12px;font-size:.75rem;margin-top:10px;display:none}
+.fs-link{color:var(--bleu);text-decoration:none;font-weight:600}
+.fs-link:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+
+<!-- ══ ÉCRAN CONFIGURATION FIREBASE ══ -->
+<div id="firebase-setup" style="display:none">
+  <div class="fs-box">
+    <div class="fs-logo">🔥</div>
+    <div class="fs-title">Connexion à Firebase requise</div>
+    <div class="fs-sub">Pour que tous vos utilisateurs accèdent aux mêmes données depuis n'importe quel appareil,<br>Ecobuild utilise <strong>Firebase</strong> (gratuit jusqu'à 1 Go de données).</div>
+
+    <div class="fs-step">
+      <div class="fs-num">1</div>
+      <div class="fs-step-body">
+        Rendez-vous sur <a class="fs-link" href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a> et connectez-vous avec votre compte Google.
+      </div>
+    </div>
+    <div class="fs-step">
+      <div class="fs-num">2</div>
+      <div class="fs-step-body">
+        Cliquez sur <strong>« Créer un projet »</strong>, donnez-lui un nom (ex: <code>ecobuild-chantier</code>), désactivez Google Analytics si vous le souhaitez, puis cliquez sur <strong>« Créer le projet »</strong>.
+      </div>
+    </div>
+    <div class="fs-step">
+      <div class="fs-num">3</div>
+      <div class="fs-step-body">
+        Dans votre projet, allez dans <strong>« Realtime Database »</strong> (menu gauche, section Compilation) → <strong>« Créer une base de données »</strong> → choisissez une région → sélectionnez <strong>« Démarrer en mode test »</strong> (vous pourrez sécuriser plus tard).
+      </div>
+    </div>
+    <div class="fs-step">
+      <div class="fs-num">4</div>
+      <div class="fs-step-body">
+        Revenez à l'accueil du projet → cliquez sur l'icône <strong>« &lt;/&gt; »</strong> (Web) → enregistrez une app (nom libre) → copiez les valeurs <code>firebaseConfig</code> affichées et collez-les ci-dessous.
+      </div>
+    </div>
+
+    <div class="fs-fields">
+      <div class="fs-field full">
+        <label>apiKey</label>
+        <input id="cfg-apiKey" placeholder="AIzaSy..." autocomplete="off"/>
+      </div>
+      <div class="fs-field">
+        <label>projectId</label>
+        <input id="cfg-projectId" placeholder="mon-projet-12345"/>
+      </div>
+      <div class="fs-field">
+        <label>databaseURL</label>
+        <input id="cfg-databaseURL" placeholder="https://mon-projet-default-rtdb.firebaseio.com"/>
+      </div>
+      <div class="fs-field">
+        <label>authDomain</label>
+        <input id="cfg-authDomain" placeholder="mon-projet.firebaseapp.com"/>
+      </div>
+      <div class="fs-field">
+        <label>appId</label>
+        <input id="cfg-appId" placeholder="1:123456789:web:abcdef"/>
+      </div>
+    </div>
+
+    <button class="fs-btn" onclick="connectFirebase()">🚀 Connecter et lancer Ecobuild</button>
+    <div class="fs-err" id="fs-err"></div>
+
+    <div style="margin-top:16px;font-size:.67rem;color:var(--gris-l);text-align:center">
+      Ces informations sont sauvegardées dans votre navigateur uniquement.<br>
+      Firebase Realtime Database est <strong>gratuit</strong> jusqu'à 1 Go de stockage et 10 Go/mois de transfert.
+    </div>
+  </div>
+</div>
+
+<!-- ══ ÉCRAN DE CONNEXION ══ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">🏗️</div>
+    <div class="login-title">Ecobuild</div>
+    <div class="login-sub">Gestion de chantier BTP — Accès sécurisé</div>
+    <div class="login-field">
+      <label>Identifiant</label>
+      <input id="login-user" type="text" placeholder="Votre identifiant" autocomplete="username"/>
+    </div>
+    <div class="login-field">
+      <label>Mot de passe</label>
+      <div style="position:relative">
+        <input id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter')doLogin()"
+          style="width:100%;padding:9px 38px 9px 12px;border:1px solid var(--border);border-radius:6px;font-family:'Inter',sans-serif;font-size:.88rem;color:var(--nuit);background:var(--ivoire)"/>
+        <button type="button" onclick="togglePassVis()"
+          style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:var(--gris-l);padding:0"
+          title="Afficher / Masquer">👁</button>
+      </div>
+    </div>
+    <button class="login-btn" onclick="doLogin()">🔐 Se connecter</button>
+    <div class="login-err" id="login-err">Identifiant ou mot de passe incorrect.</div>
+    <div style="margin-top:18px;font-size:.68rem;color:var(--gris-l)">
+      Première connexion : <strong>admin</strong> / <strong>ecobuild2025</strong>
+    </div>
+    <div style="margin-top:10px;font-size:.65rem;color:var(--gris-l)">
+      <a href="#" onclick="resetAllAuth();return false;"
+        style="color:var(--rouge);text-decoration:none;font-weight:600"
+        title="Réinitialise tous les comptes (admin/ecobuild2025)">
+        ⚠️ Réinitialiser tous les accès
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sb-brand">
+    <div class="sb-logo">
+      <div class="eco-logo">🏗️</div>
+      <div><div class="sb-name">Ecobuild</div><div class="sb-sub">Gestion BTP</div></div>
+    </div>
+  </div>
+  <div class="sb-nav">
+    <div class="sb-group">Vue générale</div>
+    <button class="nav-btn active" onclick="go('dashboard')"><span class="ni">📊</span>Tableau de bord</button>
+
+    <div class="sb-group">Projets</div>
+    <button class="nav-btn" onclick="go('projets')"><span class="ni">🏗️</span>Projets<span class="nb" id="nb-projets">0</span></button>
+    <button class="nav-btn" onclick="go('depenses')"><span class="ni">💸</span>Dépenses<span class="nb" id="nb-dep">0</span></button>
+    <button class="nav-btn" onclick="go('budget')"><span class="ni">📊</span>Budget & Écarts</button>
+
+    <div class="sb-group">Ressources</div>
+    <button class="nav-btn" onclick="go('personnel')"><span class="ni">👷</span>Personnel<span class="nb" id="nb-pers">0</span></button>
+    <button class="nav-btn" onclick="go('fournisseurs')"><span class="ni">🏭</span>Fournisseurs<span class="nb" id="nb-four">0</span></button>
+
+    <div class="sb-group">Trésorerie</div>
+    <button class="nav-btn" onclick="go('depots')"><span class="ni">🏦</span>Dépôts<span class="nb" id="nb-dep-tr">0</span></button>
+
+    <div class="sb-group">Reporting</div>
+    <button class="nav-btn" onclick="go('rapports')"><span class="ni">📈</span>Rapports</button>
+    <button class="nav-btn" onclick="exportExcel()" style="color:var(--ocre-l)"><span class="ni">📥</span>Export Excel</button>
+    <div class="sb-group" id="nav-admin-group" style="display:none">Administration</div>
+    <button class="nav-btn" id="nav-admin-btn" onclick="go('admin')" style="display:none"><span class="ni">🔑</span>Accès & Utilisateurs</button>
+  </div>
+  <div class="user-bar" id="user-bar">
+    <div class="user-avatar" id="user-avatar">?</div>
+    <div class="user-info">
+      <div class="user-name" id="user-name">—</div>
+      <div class="user-role" id="user-role">—</div>
+    </div>
+    <button class="logout-btn" onclick="doLogout()" title="Se déconnecter">⏻</button>
+  </div>
+  <div class="sb-foot" style="border-top:none;padding-top:4px">
+    <strong>Ecobuild BTP — Bénin</strong>
+    <span id="sb-date"></span>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+<div class="topbar">
+  <div class="page-title"><span id="page-title">Tableau de bord</span></div>
+  <div class="tb-right">
+    <div class="tb-badge" id="tb-badge">📊 Vue générale</div>
+    <button class="btn btn-ocre btn-sm no-print" onclick="exportExcel()">📥 Export Excel</button>
+    <button class="btn btn-eco btn-sm no-print" id="btn-action" onclick="btnAction()">＋ Nouveau</button>
+  </div>
+</div>
+<div class="content">
+
+<!-- ════════════════════════════════
+     DASHBOARD
+════════════════════════════════ -->
+<div class="view active" id="view-dashboard">
+  <div class="kpi-grid">
+    <div class="kpi eco"><div class="kpi-label">Projets actifs</div><div class="kpi-val" id="d-projets">0</div><div class="kpi-sub">En cours</div></div>
+    <div class="kpi ocre"><div class="kpi-label">Budget total</div><div class="kpi-val" id="d-budget">0</div><div class="kpi-sub">FCFA prévu</div></div>
+    <div class="kpi rouge"><div class="kpi-label">Dépenses réelles</div><div class="kpi-val" id="d-depenses">0</div><div class="kpi-sub">FCFA engagé</div></div>
+    <div class="kpi bleu"><div class="kpi-label">Reste à dépenser</div><div class="kpi-val" id="d-reste">0</div><div class="kpi-sub">FCFA disponible</div></div>
+    <div class="kpi violet"><div class="kpi-label">Projets dépassés</div><div class="kpi-val" id="d-depasse">0</div><div class="kpi-sub">Budget excédé</div></div>
+  </div>
+
+  <!-- Rangée 1 : listes rapides -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="card">
+      <div class="card-head"><h3>🏗️ Projets en cours</h3><button class="btn btn-sm btn-sec" onclick="go('projets')">Voir tout</button></div>
+      <div class="card-body" id="d-projets-list"><p style="color:var(--gris-l);font-size:.8rem">Aucun projet.</p></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>💸 Dernières dépenses</h3><button class="btn btn-sm btn-sec" onclick="go('depenses')">Voir tout</button></div>
+      <div class="card-body" id="d-dep-list"><p style="color:var(--gris-l);font-size:.8rem">Aucune dépense.</p></div>
+    </div>
+  </div>
+
+  <!-- Rangée 2 : trésorerie + alertes -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="card">
+      <div class="card-head"><h3>🏦 Trésorerie (dépôts vs dépenses)</h3><button class="btn btn-sm btn-sec" onclick="go('depots')">Gérer</button></div>
+      <div class="card-body" id="d-tresorerie"><p style="color:var(--gris-l);font-size:.8rem">Aucun dépôt.</p></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>⚠️ Projets en dépassement</h3></div>
+      <div class="card-body" id="d-alertes"><p style="color:var(--gris-l);font-size:.8rem">Aucun dépassement.</p></div>
+    </div>
+  </div>
+
+  <!-- ══ GRAPHIQUES ══ -->
+  <div style="margin-bottom:8px">
+    <div style="font-size:.62rem;letter-spacing:2.5px;text-transform:uppercase;color:var(--ocre);font-weight:700;margin-bottom:6px">Statistiques graphiques</div>
+  </div>
+
+  <!-- Ligne A : Entrées/Sorties par projet (barres) + Évolution mensuelle (ligne) -->
+  <div style="display:grid;grid-template-columns:3fr 2fr;gap:16px;margin-bottom:16px">
+
+    <div class="card">
+      <div class="card-head">
+        <h3>📊 Budget vs Dépenses par projet</h3>
+        <div class="chart-tabs">
+          <button class="chart-tab active" id="ct-bvr-abs" onclick="switchChartTab('bvr','abs')">Montants</button>
+          <button class="chart-tab" id="ct-bvr-pct" onclick="switchChartTab('bvr','pct')">% Consommé</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap"><canvas id="chart-bvr"></canvas></div>
+        <div class="chart-legend" id="leg-bvr"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>🥧 Dépenses par catégorie</h3></div>
+      <div class="card-body">
+        <div class="chart-wrap" style="height:200px"><canvas id="chart-donut"></canvas></div>
+        <div class="chart-legend" id="leg-donut"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ligne B : Entrées/Sorties mensuelles (aire) + Dépenses par catégorie & projet (barres empilées) -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+
+    <div class="card">
+      <div class="card-head">
+        <h3>📈 Entrées & Sorties mensuelles</h3>
+        <div class="chart-tabs">
+          <button class="chart-tab active" id="ct-month-6" onclick="switchChartTab('month','6')">6 mois</button>
+          <button class="chart-tab" id="ct-month-12" onclick="switchChartTab('month','12')">12 mois</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap"><canvas id="chart-monthly"></canvas></div>
+        <div class="chart-legend" id="leg-monthly"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h3>📦 Dépenses par catégorie & projet</h3>
+        <div class="chart-tabs">
+          <button class="chart-tab active" id="ct-stack-abs" onclick="switchChartTab('stack','abs')">Montants</button>
+          <button class="chart-tab" id="ct-stack-pct" onclick="switchChartTab('stack','pct')">Proportion</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap"><canvas id="chart-stack"></canvas></div>
+        <div class="chart-legend" id="leg-stack"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ligne C : Solde trésorerie par projet (horizontal) -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-head"><h3>💰 Solde trésorerie par projet (Dépôts − Dépenses)</h3></div>
+    <div class="card-body">
+      <div class="chart-wrap" style="height:160px"><canvas id="chart-solde"></canvas></div>
+      <div class="chart-legend" id="leg-solde"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ════════════════════════════════
+     PROJETS
+════════════════════════════════ -->
+<div class="view" id="view-projets">
+  <div class="card no-print">
+    <div class="card-head"><h3>🏗️ Nouveau projet</h3></div>
+    <div class="card-body">
+      <div class="form-row c4">
+        <div class="field"><label>Référence projet</label><input id="p-ref" placeholder="ECO-2025-001"/></div>
+        <div class="field"><label>Nom du projet</label><input id="p-nom" placeholder="Route bitumée Zogbadjè"/></div>
+        <div class="field"><label>Type</label><select id="p-type">
+          <option>Bâtiment</option><option>Route / VRD</option><option>Infrastructure</option>
+          <option>Rénovation</option><option>Terrassement</option><option>Autre</option>
+        </select></div>
+        <div class="field"><label>Maître d'ouvrage</label><input id="p-moa" placeholder="Client / Institution"/></div>
+      </div>
+      <div class="form-row c4">
+        <div class="field"><label>Lieu</label><input id="p-lieu" placeholder="Localité, Commune"/></div>
+        <div class="field"><label>Chef de projet</label><input id="p-chef" placeholder="Nom du responsable"/></div>
+        <div class="field"><label>Date début</label><input id="p-debut" type="date"/></div>
+        <div class="field"><label>Date fin prévue</label><input id="p-fin" type="date"/></div>
+      </div>
+      <!-- Budget par catégorie -->
+      <div style="margin-bottom:8px;font-size:.68rem;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.5px">Budget prévisionnel par catégorie (FCFA)</div>
+      <div class="form-row c5">
+        <div class="field"><label>🟢 Main d'œuvre</label><input id="b-mo"  type="number" value="0" min="0" placeholder="0"/></div>
+        <div class="field"><label>🟡 Matériaux</label><input id="b-mat" type="number" value="0" min="0" placeholder="0"/></div>
+        <div class="field"><label>🟣 Sous-traitants</label><input id="b-ss"  type="number" value="0" min="0" placeholder="0"/></div>
+        <div class="field"><label>🔵 Équipements</label><input id="b-eq"  type="number" value="0" min="0" placeholder="0"/></div>
+        <div class="field"><label>⚪ Frais généraux</label><input id="b-fg"  type="number" value="0" min="0" placeholder="0"/></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Description / Objet des travaux</label>
+          <textarea id="p-desc" placeholder="Description des travaux, périmètre, contraintes…"></textarea></div>
+      </div>
+      <button class="btn btn-eco" onclick="addProjet()">✅ Créer le projet</button>
+    </div>
+  </div>
+
+  <div id="projets-list">
+    <div style="text-align:center;padding:30px;color:var(--gris-l);font-size:.82rem">
+      <div style="font-size:2.5rem;margin-bottom:8px">🏗️</div>Aucun projet créé.
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     DÉPENSES
+════════════════════════════════ -->
+<div class="view" id="view-depenses">
+  <div class="card no-print">
+    <div class="card-head"><h3>💸 Saisir une dépense</h3></div>
+    <div class="card-body">
+      <div class="form-row c4">
+        <div class="field"><label>Projet</label><select id="dep-projet"><option value="">-- Projet --</option></select></div>
+        <div class="field"><label>Catégorie</label><select id="dep-cat">
+          <option value="mo">🟢 Main d'œuvre</option>
+          <option value="mat">🟡 Matériaux</option>
+          <option value="ss">🟣 Sous-traitant</option>
+          <option value="eq">🔵 Équipement</option>
+          <option value="fg">⚪ Frais généraux</option>
+        </select></div>
+        <div class="field"><label>Date</label><input id="dep-date" type="date"/></div>
+        <div class="field"><label>Fournisseur / Bénéficiaire</label><select id="dep-four"><option value="">-- Choisir --</option></select></div>
+      </div>
+      <div class="form-row c4">
+        <div class="field"><label>Désignation</label><input id="dep-label" placeholder="Ex : Achat ciment 50 sacs"/></div>
+        <div class="field"><label>Quantité</label><input id="dep-qte" type="number" value="1" min="0" step="0.01"/></div>
+        <div class="field"><label>Prix unitaire (FCFA)</label><input id="dep-pu" type="number" value="0" min="0"/></div>
+        <div class="field"><label>Mode paiement</label><select id="dep-mode">
+          <option>Espèces</option><option>Virement</option><option>Chèque</option>
+          <option>Mobile Money</option><option>Crédit</option>
+        </select></div>
+      </div>
+      <div class="form-row c2">
+        <div class="field"><label>N° Pièce justificative</label><input id="dep-piece" placeholder="FAC-XXX / BL-XXX"/></div>
+        <div class="field"><label>Observation</label><input id="dep-obs" placeholder="Remarque optionnelle"/></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="btn btn-eco" onclick="addDepense()">✅ Enregistrer la dépense</button>
+        <div style="font-size:.78rem;color:var(--gris)">Montant : <strong id="dep-preview" style="color:var(--eco)">0 FCFA</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtres -->
+  <div class="card no-print">
+    <div class="card-head"><h3>🔍 Filtres</h3></div>
+    <div class="card-body">
+      <div class="form-row c4">
+        <div class="field"><label>Projet</label><select id="f-projet" onchange="renderDepenses()"><option value="">Tous</option></select></div>
+        <div class="field"><label>Catégorie</label><select id="f-cat" onchange="renderDepenses()">
+          <option value="">Toutes</option>
+          <option value="mo">Main d'œuvre</option><option value="mat">Matériaux</option>
+          <option value="ss">Sous-traitant</option><option value="eq">Équipement</option>
+          <option value="fg">Frais généraux</option>
+        </select></div>
+        <div class="field"><label>Du</label><input id="f-du" type="date" onchange="renderDepenses()"/></div>
+        <div class="field"><label>Au</label><input id="f-au" type="date" onchange="renderDepenses()"/></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h3>💸 Liste des dépenses</h3>
+      <div style="display:flex;gap:6px">
+        <span id="dep-total-label" style="font-size:.8rem;color:var(--gris)">Total : <strong id="dep-total" style="color:var(--eco)">0 FCFA</strong></span>
+        <button class="btn btn-sm btn-ocre no-print" onclick="exportExcelProjet()">📥 Excel ce projet</button>
+      </div>
+    </div>
+    <div class="card-body" style="padding:0">
+      <table class="tbl">
+        <thead><tr><th>Date</th><th>Projet</th><th>Catégorie</th><th>Désignation</th><th>Qté</th><th>PU</th><th>Montant</th><th>Paiement</th><th>Pièce</th><th class="no-print">Actions</th></tr></thead>
+        <tbody id="dep-tbody"><tr><td colspan="10" style="text-align:center;color:var(--gris-l);padding:24px">Aucune dépense</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     BUDGET & ÉCARTS
+════════════════════════════════ -->
+<div class="view" id="view-budget">
+  <div style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap" class="no-print">
+    <div class="field" style="min-width:200px">
+      <label>Sélectionner un projet</label>
+      <select id="bud-projet" onchange="renderBudget()"><option value="">Tous les projets</option></select>
+    </div>
+    <button class="btn btn-ocre" onclick="exportExcelProjet()" style="align-self:flex-end">📥 Export Excel</button>
+    <button class="btn btn-sec" onclick="window.print()" style="align-self:flex-end">🖨 Imprimer</button>
+  </div>
+  <div id="budget-content">
+    <p style="color:var(--gris-l);font-size:.82rem;text-align:center;padding:30px">Sélectionnez un projet.</p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     PERSONNEL
+════════════════════════════════ -->
+<div class="view" id="view-personnel">
+  <div class="card no-print">
+    <div class="card-head"><h3>👷 Ajouter un agent</h3></div>
+    <div class="card-body">
+      <div class="form-row c4">
+        <div class="field"><label>Nom & Prénom</label><input id="pers-nom" placeholder="Nom Prénom"/></div>
+        <div class="field"><label>Fonction</label><select id="pers-fon">
+          <option>Ingénieur BTP</option><option>Chef de chantier</option>
+          <option>Maçon</option><option>Manœuvre</option><option>Conducteur engins</option>
+          <option>Électricien</option><option>Plombier</option><option>Autre</option>
+        </select></div>
+        <div class="field"><label>Téléphone</label><input id="pers-tel" placeholder="229XXXXXXXX"/></div>
+        <div class="field"><label>Salaire journalier (FCFA)</label><input id="pers-sal" type="number" value="0" min="0"/></div>
+      </div>
+      <div class="form-row c2">
+        <div class="field"><label>Projet affecté</label><select id="pers-projet"><option value="">-- Aucun --</option></select></div>
+        <div class="field"><label>Statut</label><select id="pers-statut"><option>Actif</option><option>Congé</option><option>Fin de contrat</option></select></div>
+      </div>
+      <button class="btn btn-eco" onclick="addPersonnel()">✅ Enregistrer</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>👷 Liste du personnel</h3><span id="pers-count" style="font-size:.75rem;color:var(--gris)">0</span></div>
+    <div class="card-body" style="padding:0">
+      <table class="tbl"><thead><tr><th>Nom</th><th>Fonction</th><th>Tél</th><th>Projet</th><th>Salaire/jour</th><th>Statut</th><th class="no-print">Actions</th></tr></thead>
+      <tbody id="pers-tbody"><tr><td colspan="7" style="text-align:center;color:var(--gris-l);padding:24px">Aucun agent</td></tr></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     FOURNISSEURS
+════════════════════════════════ -->
+<div class="view" id="view-fournisseurs">
+  <div class="card no-print">
+    <div class="card-head"><h3>🏭 Nouveau fournisseur</h3></div>
+    <div class="card-body">
+      <div class="form-row c4">
+        <div class="field"><label>Raison sociale</label><input id="f-nom" placeholder="Nom entreprise"/></div>
+        <div class="field"><label>Spécialité</label><select id="f-spec">
+          <option>Matériaux construction</option><option>Main d'œuvre spécialisée</option>
+          <option>Location engins</option><option>Transport</option>
+          <option>Électricité</option><option>Plomberie</option>
+          <option>Sous-traitant BTP</option><option>Autre</option>
+        </select></div>
+        <div class="field"><label>Contact</label><input id="f-contact" placeholder="Nom Prénom"/></div>
+        <div class="field"><label>Téléphone</label><input id="f-tel" placeholder="229XXXXXXXX"/></div>
+      </div>
+      <div class="form-row c2">
+        <div class="field"><label>Ville</label><input id="f-ville" placeholder="Cotonou"/></div>
+        <div class="field"><label>Email</label><input id="f-email" type="email" placeholder="email@domaine.com"/></div>
+      </div>
+      <button class="btn btn-eco" onclick="addFournisseur()">✅ Enregistrer</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>🏭 Liste des fournisseurs</h3><span id="four-count" style="font-size:.75rem;color:var(--gris)">0</span></div>
+    <div class="card-body" style="padding:0">
+      <table class="tbl"><thead><tr><th>Raison sociale</th><th>Spécialité</th><th>Contact</th><th>Tél</th><th>Ville</th><th>Montant engagé</th><th class="no-print">Actions</th></tr></thead>
+      <tbody id="four-tbody"><tr><td colspan="7" style="text-align:center;color:var(--gris-l);padding:24px">Aucun fournisseur</td></tr></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     RAPPORTS
+════════════════════════════════ -->
+<div class="view" id="view-rapports">
+  <div class="kpi-grid">
+    <div class="kpi eco"><div class="kpi-label">Total budgets</div><div class="kpi-val" id="r-bud">0</div><div class="kpi-sub">FCFA prévu</div></div>
+    <div class="kpi rouge"><div class="kpi-label">Total dépensé</div><div class="kpi-val" id="r-dep">0</div><div class="kpi-sub">FCFA réel</div></div>
+    <div class="kpi ocre"><div class="kpi-label">Taux exécution</div><div class="kpi-val" id="r-taux">0%</div><div class="kpi-sub">Moyen tous projets</div></div>
+    <div class="kpi bleu"><div class="kpi-label">Projets terminés</div><div class="kpi-val" id="r-term">0</div><div class="kpi-sub">Sur total</div></div>
+    <div class="kpi violet"><div class="kpi-label">Personnel actif</div><div class="kpi-val" id="r-pers">0</div><div class="kpi-sub">Agents</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="card">
+      <div class="card-head"><h3>📊 Budget vs Réel par projet</h3></div>
+      <div class="card-body" id="r-bvr"><p style="color:var(--gris-l);font-size:.8rem">Aucune donnée.</p></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>💸 Dépenses par catégorie (tous projets)</h3></div>
+      <div class="card-body" id="r-cats"><p style="color:var(--gris-l);font-size:.8rem">Aucune donnée.</p></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>🏭 Top fournisseurs</h3></div>
+      <div class="card-body" id="r-fours"><p style="color:var(--gris-l);font-size:.8rem">Aucune donnée.</p></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>📅 Dépenses par mois</h3></div>
+      <div class="card-body" id="r-mois"><p style="color:var(--gris-l);font-size:.8rem">Aucune donnée.</p></div>
+    </div>
+  </div>
+  <div style="margin-top:16px;display:flex;gap:8px" class="no-print">
+    <button class="btn btn-ocre" onclick="exportExcel()">📥 Export Excel complet</button>
+    <button class="btn btn-sec" onclick="window.print()">🖨 Imprimer rapport</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     DÉPÔTS
+════════════════════════════════ -->
+<div class="view" id="view-depots">
+
+  <!-- KPIs trésorerie -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+    <div class="kpi eco"><div class="kpi-label">Total déposé</div><div class="kpi-val" id="tr-total">0</div><div class="kpi-sub">FCFA toutes sources</div></div>
+    <div class="kpi bleu"><div class="kpi-label">Sur compte bancaire</div><div class="kpi-val" id="tr-compte">0</div><div class="kpi-sub">FCFA en banque</div></div>
+    <div class="kpi ocre"><div class="kpi-label">En caisse (cash)</div><div class="kpi-val" id="tr-cash">0</div><div class="kpi-sub">FCFA espèces</div></div>
+    <div class="kpi violet"><div class="kpi-label">Nb de dépôts</div><div class="kpi-val" id="tr-nb">0</div><div class="kpi-sub">Opérations saisies</div></div>
+  </div>
+
+  <!-- Formulaire saisie -->
+  <div class="card no-print">
+    <div class="card-head"><h3>💰 Enregistrer un dépôt</h3></div>
+    <div class="card-body">
+
+      <!-- Tabs sous-rubriques -->
+      <div class="tabs" style="margin-bottom:16px">
+        <button class="tab active" id="tab-compte" onclick="switchDepotTab('compte')">🏦 Sur compte bancaire</button>
+        <button class="tab" id="tab-cash" onclick="switchDepotTab('cash')">💵 Cash (espèces)</button>
+      </div>
+
+      <!-- COMPTE -->
+      <div id="depot-mode-compte">
+        <div class="form-row c4">
+          <div class="field"><label>Date du dépôt</label><input id="dc-date" type="date"/></div>
+          <div class="field"><label>Montant (FCFA)</label><input id="dc-montant" type="number" value="0" min="0" oninput="previewDepot('compte')"/></div>
+          <div class="field"><label>Banque / Établissement</label><input id="dc-banque" placeholder="Ex : BOA, UBA, Ecobank…"/></div>
+          <div class="field"><label>N° Compte</label><input id="dc-numcompte" placeholder="Optionnel"/></div>
+        </div>
+        <div class="form-row c4">
+          <div class="field"><label>Projet concerné</label><select id="dc-projet"><option value="">-- Aucun --</option></select></div>
+          <div class="field"><label>Déposant</label><input id="dc-deposant" placeholder="Nom du déposant"/></div>
+          <div class="field"><label>N° Bordereau / Reçu</label><input id="dc-piece" placeholder="N° de référence"/></div>
+          <div class="field"><label>Origine des fonds</label><select id="dc-origine">
+            <option>Client / Maître d'ouvrage</option>
+            <option>Apport personnel</option>
+            <option>Emprunt bancaire</option>
+            <option>Subvention</option>
+            <option>Transfert interne</option>
+            <option>Autre</option>
+          </select></div>
+        </div>
+        <div class="field" style="margin-bottom:12px"><label>Observation</label><input id="dc-obs" placeholder="Remarque optionnelle"/></div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="btn btn-bleu" onclick="addDepot('compte')">✅ Enregistrer le dépôt bancaire</button>
+          <div style="font-size:.78rem;color:var(--gris)">Montant : <strong id="prev-compte" style="color:var(--bleu)">0 FCFA</strong></div>
+        </div>
+      </div>
+
+      <!-- CASH -->
+      <div id="depot-mode-cash" style="display:none">
+        <div class="form-row c4">
+          <div class="field"><label>Date</label><input id="dh-date" type="date"/></div>
+          <div class="field"><label>Montant (FCFA)</label><input id="dh-montant" type="number" value="0" min="0" oninput="previewDepot('cash')"/></div>
+          <div class="field"><label>Responsable caisse</label><input id="dh-responsable" placeholder="Nom du caissier"/></div>
+          <div class="field"><label>Projet concerné</label><select id="dh-projet"><option value="">-- Aucun --</option></select></div>
+        </div>
+        <div class="form-row c3">
+          <div class="field"><label>N° Reçu / Pièce</label><input id="dh-piece" placeholder="N° pièce justificative"/></div>
+          <div class="field"><label>Origine des fonds</label><select id="dh-origine">
+            <option>Client / Maître d'ouvrage</option>
+            <option>Retrait bancaire</option>
+            <option>Apport personnel</option>
+            <option>Remboursement</option>
+            <option>Autre</option>
+          </select></div>
+          <div class="field"><label>Observation</label><input id="dh-obs" placeholder="Remarque optionnelle"/></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="btn btn-ocre" onclick="addDepot('cash')">✅ Enregistrer le dépôt cash</button>
+          <div style="font-size:.78rem;color:var(--gris)">Montant : <strong id="prev-cash" style="color:var(--ocre)">0 FCFA</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtres -->
+  <div class="card no-print">
+    <div class="card-head"><h3>🔍 Filtres</h3></div>
+    <div class="card-body">
+      <div class="form-row c4">
+        <div class="field"><label>Type</label>
+          <select id="df-type" onchange="renderDepots()">
+            <option value="">Tous</option>
+            <option value="compte">Compte bancaire</option>
+            <option value="cash">Cash</option>
+          </select></div>
+        <div class="field"><label>Projet</label><select id="df-projet" onchange="renderDepots()"><option value="">Tous</option></select></div>
+        <div class="field"><label>Du</label><input id="df-du" type="date" onchange="renderDepots()"/></div>
+        <div class="field"><label>Au</label><input id="df-au" type="date" onchange="renderDepots()"/></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tableaux par sous-rubrique -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+    <!-- Compte bancaire -->
+    <div class="card">
+      <div class="card-head">
+        <h3>🏦 Dépôts sur compte bancaire</h3>
+        <strong id="tr-total-compte" style="font-size:.82rem;color:var(--bleu)">0 FCFA</strong>
+      </div>
+      <div class="card-body" style="padding:0">
+        <table class="tbl">
+          <thead><tr><th>Date</th><th>Montant</th><th>Banque</th><th>Projet</th><th>Déposant</th><th>Origine</th><th>Pièce</th><th class="no-print">⚙</th></tr></thead>
+          <tbody id="depot-compte-tbody"><tr><td colspan="8" style="text-align:center;color:var(--gris-l);padding:20px">Aucun dépôt</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Cash -->
+    <div class="card">
+      <div class="card-head">
+        <h3>💵 Dépôts en caisse (cash)</h3>
+        <strong id="tr-total-cash" style="font-size:.82rem;color:var(--ocre)">0 FCFA</strong>
+      </div>
+      <div class="card-body" style="padding:0">
+        <table class="tbl">
+          <thead><tr><th>Date</th><th>Montant</th><th>Responsable</th><th>Projet</th><th>Origine</th><th>Pièce</th><th class="no-print">⚙</th></tr></thead>
+          <tbody id="depot-cash-tbody"><tr><td colspan="7" style="text-align:center;color:var(--gris-l);padding:20px">Aucun dépôt</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Synthèse par projet -->
+  <div class="card" style="margin-top:4px">
+    <div class="card-head">
+      <h3>📊 Synthèse des dépôts par projet</h3>
+      <button class="btn btn-sm btn-ocre no-print" onclick="exportExcelDepots()">📥 Export Excel</button>
+    </div>
+    <div class="card-body" style="padding:0">
+      <table class="tbl">
+        <thead><tr><th>Projet</th><th>Dépôts compte (FCFA)</th><th>Dépôts cash (FCFA)</th><th>Total déposé</th><th>Dépenses réelles</th><th>Solde trésorerie</th></tr></thead>
+        <tbody id="synth-depots-tbody"><tr><td colspan="6" style="text-align:center;color:var(--gris-l);padding:20px">Aucune donnée</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- ════════════════════════════════
+     ADMIN — GESTION DES ACCÈS
+════════════════════════════════ -->
+<div class="view" id="view-admin">
+
+  <!-- KPIs -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+    <div class="kpi eco"><div class="kpi-label">Utilisateurs actifs</div><div class="kpi-val" id="adm-nb">0</div><div class="kpi-sub">Comptes créés</div></div>
+    <div class="kpi ocre"><div class="kpi-label">Admins</div><div class="kpi-val" id="adm-admins">0</div><div class="kpi-sub">Accès complet</div></div>
+    <div class="kpi bleu"><div class="kpi-label">Accès limités</div><div class="kpi-val" id="adm-limited">0</div><div class="kpi-sub">Modules restreints</div></div>
+    <div class="kpi violet"><div class="kpi-label">Dernière connexion</div><div class="kpi-val" id="adm-last" style="font-size:1rem">—</div><div class="kpi-sub">Utilisateur actif</div></div>
+  </div>
+
+  <!-- Créer un utilisateur -->
+  <div class="card no-print">
+    <div class="card-head"><h3>➕ Créer un compte utilisateur</h3></div>
+    <div class="card-body">
+      <div class="form-row c4">
+        <div class="field"><label>Nom complet</label><input id="u-nom" placeholder="Prénom Nom"/></div>
+        <div class="field"><label>Identifiant (login)</label><input id="u-login" placeholder="Ex : jdupont"/></div>
+        <div class="field"><label>Mot de passe</label><input id="u-pass" type="password" placeholder="••••••••"/></div>
+        <div class="field"><label>Rôle</label>
+          <select id="u-role" onchange="applyRolePreset()">
+            <option value="admin">🔑 Administrateur</option>
+            <option value="chef">👷 Chef de projet</option>
+            <option value="comptable">💼 Comptable</option>
+            <option value="consultant">👁 Consultant</option>
+            <option value="custom">⚙ Personnalisé</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Permissions par module -->
+      <div style="margin:12px 0 6px;font-size:.68rem;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.5px">
+        Accès aux modules
+      </div>
+      <div id="perm-grid-wrap" style="background:var(--ivoire);border:1px solid var(--border);border-radius:6px;padding:14px">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px" id="perm-checks"></div>
+      </div>
+
+      <div style="margin-top:10px;font-size:.7rem;color:var(--gris-l)">
+        💡 Sélectionnez un rôle pour pré-remplir les permissions, ou personnalisez manuellement.
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn btn-eco" onclick="addUser()">✅ Créer l'utilisateur</button>
+        <button class="btn btn-sec" onclick="resetUserForm()">Vider</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Liste des utilisateurs -->
+  <div class="card">
+    <div class="card-head"><h3>👥 Utilisateurs & permissions</h3></div>
+    <div class="card-body" style="padding:0">
+      <table class="tbl">
+        <thead><tr>
+          <th>Nom</th><th>Login</th><th>Rôle</th>
+          <th>Dashboard</th><th>Projets</th><th>Dépenses</th>
+          <th>Budget</th><th>Personnel</th><th>Fourn.</th>
+          <th>Dépôts</th><th>Rapports</th><th>Export</th>
+          <th class="no-print">Actions</th>
+        </tr></thead>
+        <tbody id="users-tbody">
+          <tr><td colspan="13" style="text-align:center;color:var(--gris-l);padding:24px">Aucun utilisateur</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modifier mot de passe -->
+  <div class="card no-print">
+    <div class="card-head"><h3>🔒 Modifier un mot de passe</h3></div>
+    <div class="card-body">
+      <div class="form-row c3">
+        <div class="field"><label>Utilisateur</label>
+          <select id="chg-user"><option value="">-- Choisir --</option></select>
+        </div>
+        <div class="field"><label>Nouveau mot de passe</label>
+          <input id="chg-pass" type="password" placeholder="Nouveau mot de passe"/>
+        </div>
+        <div class="field"><label>Confirmer</label>
+          <input id="chg-pass2" type="password" placeholder="Confirmer"/>
+        </div>
+      </div>
+      <button class="btn btn-eco" onclick="changePassword()">🔑 Changer le mot de passe</button>
+    </div>
+  </div>
+
+</div>
+
+</div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ══ MODAL ÉDITION ══ -->
+<div id="edit-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="modal-title" id="modal-title">Modifier</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  CONFIGURATION FIREBASE
+//  Chargée depuis localStorage (remplie via l'écran de configuration)
+// ═══════════════════════════════════════════════
+let _fbConfig = null;
+let _fbApp    = null;
+let _dbRef    = null;   // référence Firebase pour les données (DB)
+let _authRef  = null;   // référence Firebase pour les comptes (AUTH)
+
+function loadFbConfig() {
+  try {
+    const s = localStorage.getItem('eco_firebase_cfg');
+    if (s) _fbConfig = JSON.parse(s);
+  } catch(e) { _fbConfig = null; }
+}
+
+function saveFbConfig(cfg) {
+  try { localStorage.setItem('eco_firebase_cfg', JSON.stringify(cfg)); } catch(e) {}
+}
+
+function isFirebaseConfigured() {
+  return _fbConfig && _fbConfig.apiKey && _fbConfig.databaseURL && _fbConfig.projectId;
+}
+
+// Lancé par le bouton "Connecter" de l'écran de configuration
+function connectFirebase() {
+  const cfg = {
+    apiKey:       document.getElementById('cfg-apiKey').value.trim(),
+    authDomain:   document.getElementById('cfg-authDomain').value.trim(),
+    databaseURL:  document.getElementById('cfg-databaseURL').value.trim(),
+    projectId:    document.getElementById('cfg-projectId').value.trim(),
+    appId:        document.getElementById('cfg-appId').value.trim(),
+  };
+  const errEl = document.getElementById('fs-err');
+  if (!cfg.apiKey || !cfg.databaseURL || !cfg.projectId) {
+    errEl.textContent = '⚠️ Les champs apiKey, databaseURL et projectId sont obligatoires.';
+    errEl.style.display = 'block'; return;
+  }
+  if (!cfg.databaseURL.startsWith('https://')) {
+    errEl.textContent = '⚠️ databaseURL doit commencer par https://';
+    errEl.style.display = 'block'; return;
+  }
+  errEl.style.display = 'none';
+  saveFbConfig(cfg);
+  _fbConfig = cfg;
+  // Recharger la page pour lancer l'init avec la nouvelle config
+  location.reload();
+}
+
+// Initialise Firebase et crée les références DB
+function initFirebase() {
+  if (!isFirebaseConfigured()) return false;
+  try {
+    _fbApp    = firebase.initializeApp(_fbConfig);
+    _dbRef    = firebase.database().ref('ecobuild/db');
+    _authRef  = firebase.database().ref('ecobuild/auth');
+    return true;
+  } catch(e) {
+    console.error('Erreur init Firebase :', e);
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  DONNÉES
+// ═══════════════════════════════════════════════
+let DB = { projets:[], depenses:[], personnel:[], fournisseurs:[], depots:[] };
+const CATS = {
+  mo:  { label:'Main d\'œuvre',   cls:'b-mo',  ccls:'c-mo',  color:'#2E7D5E' },
+  mat: { label:'Matériaux',       cls:'b-mat', ccls:'c-mat', color:'#C9892A' },
+  ss:  { label:'Sous-traitant',   cls:'b-ss',  ccls:'c-ss',  color:'#6D28D9' },
+  eq:  { label:'Équipement',      cls:'b-eq',  ccls:'c-eq',  color:'#1D4ED8' },
+  fg:  { label:'Frais généraux',  cls:'b-fg',  ccls:'c-fg',  color:'#6B7280' },
+};
+const TYPES_COLOR = {
+  'Bâtiment':'#1B4F3A','Route / VRD':'#C9892A','Infrastructure':'#1D4ED8',
+  'Rénovation':'#6D28D9','Terrassement':'#B91C1C','Autre':'#6B7280'
+};
+const fmtN = n => Math.round(n||0).toLocaleString('fr-FR');
+const uid  = () => Date.now()+Math.random().toString(36).slice(2,6);
+const today= () => new Date().toISOString().slice(0,10);
+
+// save() / load() : Firebase en priorité, localStorage en fallback
+function save() {
+  if (_dbRef) {
+    _dbRef.set(DB).catch(e => console.warn('Firebase save DB :', e));
+  } else {
+    try { localStorage.setItem('ecobuild', JSON.stringify(DB)); } catch(e) {}
+  }
+}
+function load() {
+  // Chargement synchrone (localStorage uniquement) — utilisé seulement si pas Firebase
+  try { const d = localStorage.getItem('ecobuild'); if (d) DB = JSON.parse(d); } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════
+const META = {
+  dashboard:   {title:'Tableau de bord',    badge:'📊 Vue générale'},
+  projets:     {title:'Projets',            badge:'🏗️ Gestion projets'},
+  depenses:    {title:'Dépenses',           badge:'💸 Saisie & Suivi'},
+  budget:      {title:'Budget & Écarts',    badge:'📊 Analyse budgétaire'},
+  personnel:   {title:'Personnel',          badge:'👷 Ressources humaines'},
+  fournisseurs:{title:'Fournisseurs',       badge:'🏭 Partenaires'},
+  depots:      {title:'Dépôts',             badge:'🏦 Trésorerie'},
+  rapports:    {title:'Rapports',           badge:'📈 Analyse & Export'},
+  admin:       {title:'Accès & Utilisateurs',badge:'🔑 Administration'},
+};
+let currentView='dashboard';
+
+function go(name){
+  currentView=name;
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>{
+    if(b.getAttribute('onclick')&&b.getAttribute('onclick').includes("'"+name+"'"))b.classList.add('active');
+  });
+  const m=META[name];
+  document.getElementById('page-title').textContent=m.title;
+  document.getElementById('tb-badge').textContent=m.badge;
+  refreshSelects();
+  if(name==='dashboard')  renderDashboard();
+  if(name==='projets')    renderProjets();
+  if(name==='depenses')   renderDepenses();
+  if(name==='budget')     renderBudget();
+  if(name==='personnel')  renderPersonnel();
+  if(name==='fournisseurs')renderFournisseurs();
+  if(name==='depots')      renderDepots();
+  if(name==='rapports')   renderRapports();
+  if(name==='admin')      renderAdmin();
+  updateBadges();
+}
+
+function btnAction(){
+  if(currentView==='projets')    document.getElementById('p-nom').focus();
+  if(currentView==='depenses')   document.getElementById('dep-label').focus();
+  if(currentView==='personnel')  document.getElementById('pers-nom').focus();
+  if(currentView==='fournisseurs')document.getElementById('f-nom').focus();
+  if(currentView==='rapports')   exportExcel();
+}
+
+function updateBadges(){
+  document.getElementById('nb-projets').textContent=DB.projets.length;
+  document.getElementById('nb-dep').textContent=DB.depenses.length;
+  document.getElementById('nb-pers').textContent=DB.personnel.length;
+  document.getElementById('nb-four').textContent=DB.fournisseurs.length;
+  document.getElementById('nb-dep-tr').textContent=DB.depots.length;
+}
+
+function refreshSelects(){
+  const opts=DB.projets.map(p=>`<option value="${p.id}">${p.ref} — ${p.nom}</option>`).join('');
+  const empty='<option value="">-- Sélectionner --</option>';
+  ['dep-projet','bud-projet','pers-projet','dc-projet','dh-projet'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    el.innerHTML=(id==='bud-projet'?'<option value="">Tous les projets</option>':empty)+opts;
+  });
+  // Filtre dépôts
+  const dfp=document.getElementById('df-projet');
+  if(dfp)dfp.innerHTML='<option value="">Tous</option>'+opts;
+  const fOpts=DB.fournisseurs.map(f=>`<option value="${f.id}">${f.nom}</option>`).join('');
+  const fd=document.getElementById('dep-four');if(fd)fd.innerHTML='<option value="">-- Fournisseur --</option>'+fOpts;
+  // Filtre dépenses
+  const fp=document.getElementById('f-projet');
+  if(fp)fp.innerHTML='<option value="">Tous</option>'+opts;
+}
+
+function projetById(id){return DB.projets.find(p=>p.id===id);}
+function fourById(id){return DB.fournisseurs.find(f=>f.id===id);}
+
+// ═══════════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════════
+function renderDashboard(){
+  const projetsActifs=DB.projets.filter(p=>p.statut==='En cours').length;
+  const budgetTotal=DB.projets.reduce((s,p)=>s+p.budgetTotal,0);
+  const depTotal=DB.depenses.reduce((s,d)=>s+d.montant,0);
+  const reste=budgetTotal-depTotal;
+  const depasses=DB.projets.filter(p=>{
+    const dep=DB.depenses.filter(d=>d.projetId===p.id).reduce((s,d)=>s+d.montant,0);
+    return dep>p.budgetTotal;
+  }).length;
+  document.getElementById('d-projets').textContent=projetsActifs;
+  document.getElementById('d-budget').textContent=fmtN(budgetTotal);
+  document.getElementById('d-depenses').textContent=fmtN(depTotal);
+  document.getElementById('d-reste').textContent=fmtN(reste);
+  document.getElementById('d-depasse').textContent=depasses;
+
+  // Projets en cours
+  const pl=document.getElementById('d-projets-list');
+  const enc=DB.projets.filter(p=>p.statut==='En cours').slice(0,4);
+  if(!enc.length){pl.innerHTML='<p style="color:var(--gris-l);font-size:.8rem">Aucun projet en cours.</p>';}
+  else pl.innerHTML=enc.map(p=>{
+    const dep=DB.depenses.filter(d=>d.projetId===p.id).reduce((s,d)=>s+d.montant,0);
+    const pct=p.budgetTotal?Math.min(100,Math.round(dep/p.budgetTotal*100)):0;
+    const over=dep>p.budgetTotal;
+    return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:4px">
+        <strong>${p.ref} — ${p.nom}</strong>
+        <span style="color:${over?'var(--rouge)':'var(--eco)'};font-weight:700">${pct}%</span>
+      </div>
+      <div class="prog-wrap"><div class="prog-fill ${over?'pf-rouge':'pf-eco'}" style="width:${pct}%"></div></div>
+      <div style="font-size:.7rem;color:var(--gris-l);margin-top:3px">${fmtN(dep)} / ${fmtN(p.budgetTotal)} FCFA</div>
+    </div>`;
+  }).join('');
+
+  // Dernières dépenses
+  const dl=document.getElementById('d-dep-list');
+  const deps=[...DB.depenses].reverse().slice(0,5);
+  if(!deps.length){dl.innerHTML='<p style="color:var(--gris-l);font-size:.8rem">Aucune dépense.</p>';}
+  else dl.innerHTML=deps.map(d=>`
+    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:.78rem">
+      <div><span class="badge ${CATS[d.cat]?.cls||''}">${CATS[d.cat]?.label||d.cat}</span> <span style="margin-left:6px">${d.label}</span></div>
+      <strong>${fmtN(d.montant)} FCFA</strong>
+    </div>`).join('');
+
+  // Alertes dépassement
+  const al=document.getElementById('d-alertes');
+  const deps2=DB.projets.filter(p=>{const d=DB.depenses.filter(x=>x.projetId===p.id).reduce((s,x)=>s+x.montant,0);return d>p.budgetTotal&&p.budgetTotal>0;});
+  if(!deps2.length){al.innerHTML='<p style="color:var(--gris-l);font-size:.8rem">✅ Aucun dépassement budgétaire.</p>';}
+  else al.innerHTML=deps2.map(p=>{
+    const d=DB.depenses.filter(x=>x.projetId===p.id).reduce((s,x)=>s+x.montant,0);
+    const ecart=d-p.budgetTotal;
+    return `<div style="padding:8px;background:var(--rouge-l);border-radius:5px;margin-bottom:6px;font-size:.78rem">
+      <strong style="color:var(--rouge)">${p.ref} — ${p.nom}</strong><br>
+      Dépassement : <strong style="color:var(--rouge)">+${fmtN(ecart)} FCFA</strong> (${fmtN(d)} / budget ${fmtN(p.budgetTotal)})
+    </div>`;
+  }).join('');
+
+  // Widget dépôts trésorerie sur dashboard
+  const depTotCompte=DB.depots.filter(d=>d.type==='compte').reduce((s,d)=>s+d.montant,0);
+  const depTotCash=DB.depots.filter(d=>d.type==='cash').reduce((s,d)=>s+d.montant,0);
+  const solde=(depTotCompte+depTotCash)-depTotal;
+  // Injecter dans le dashboard si le widget existe
+  const wTr=document.getElementById('d-tresorerie');
+  if(wTr) wTr.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div style="background:var(--bleu-l);border-radius:6px;padding:12px;text-align:center">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:700;color:var(--bleu)">${fmtN(depTotCompte)}</div>
+        <div style="font-size:.65rem;color:var(--bleu);margin-top:3px;text-transform:uppercase;letter-spacing:.5px">🏦 Compte bancaire</div>
+      </div>
+      <div style="background:var(--ocre-pale);border-radius:6px;padding:12px;text-align:center">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:700;color:var(--ocre)">${fmtN(depTotCash)}</div>
+        <div style="font-size:.65rem;color:var(--ocre);margin-top:3px;text-transform:uppercase;letter-spacing:.5px">💵 Cash</div>
+      </div>
+      <div style="background:${solde>=0?'var(--eco-xl)':'var(--rouge-l)'};border-radius:6px;padding:12px;text-align:center">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:700;color:${solde>=0?'var(--eco)':'var(--rouge)'}">${solde>=0?'+':''}${fmtN(solde)}</div>
+        <div style="font-size:.65rem;color:${solde>=0?'var(--eco)':'var(--rouge)'};margin-top:3px;text-transform:uppercase;letter-spacing:.5px">Solde trésorerie</div>
+      </div>
+    </div>`;
+  const catEl=document.getElementById('d-categories');
+  const catTotaux={mo:0,mat:0,ss:0,eq:0,fg:0};
+  DB.depenses.forEach(d=>{if(catTotaux[d.cat]!==undefined)catTotaux[d.cat]+=d.montant;});
+  const total=Object.values(catTotaux).reduce((a,b)=>a+b,0)||1;
+  // Graphiques — rendu différé pour laisser le DOM se stabiliser
+  setTimeout(renderCharts, 80);
+}
+
+// ═══════════════════════════════════════════════
+//  PROJETS
+// ═══════════════════════════════════════════════
+function addProjet(){
+  const nom=document.getElementById('p-nom').value.trim();
+  if(!nom){alert('Entrez un nom de projet.');return;}
+  const bmo=parseFloat(document.getElementById('b-mo').value)||0;
+  const bmat=parseFloat(document.getElementById('b-mat').value)||0;
+  const bss=parseFloat(document.getElementById('b-ss').value)||0;
+  const beq=parseFloat(document.getElementById('b-eq').value)||0;
+  const bfg=parseFloat(document.getElementById('b-fg').value)||0;
+  DB.projets.push({
+    id:uid(),
+    ref:document.getElementById('p-ref').value.trim()||'ECO-'+Date.now(),
+    nom,type:document.getElementById('p-type').value,
+    moa:document.getElementById('p-moa').value,
+    lieu:document.getElementById('p-lieu').value,
+    chef:document.getElementById('p-chef').value,
+    debut:document.getElementById('p-debut').value,
+    fin:document.getElementById('p-fin').value,
+    desc:document.getElementById('p-desc').value,
+    statut:'En cours',
+    budget:{mo:bmo,mat:bmat,ss:bss,eq:beq,fg:bfg},
+    budgetTotal:bmo+bmat+bss+beq+bfg,
+    datec:today()
+  });
+  ['p-ref','p-nom','p-moa','p-lieu','p-chef','p-debut','p-fin','p-desc'].forEach(id=>document.getElementById(id).value='');
+  ['b-mo','b-mat','b-ss','b-eq','b-fg'].forEach(id=>document.getElementById(id).value='0');
+  save();renderProjets();refreshSelects();updateBadges();
+  if(currentView==='dashboard') setTimeout(renderCharts,80);
+}
+
+function renderProjets(){
+  const el=document.getElementById('projets-list');
+  if(!DB.projets.length){
+    el.innerHTML='<div style="text-align:center;padding:30px;color:var(--gris-l);font-size:.82rem"><div style="font-size:2.5rem;margin-bottom:8px">🏗️</div>Aucun projet créé.</div>';return;
+  }
+  el.innerHTML=DB.projets.map(p=>{
+    const dep=DB.depenses.filter(d=>d.projetId===p.id);
+    const depTotal=dep.reduce((s,d)=>s+d.montant,0);
+    const pct=p.budgetTotal?Math.min(200,Math.round(depTotal/p.budgetTotal*100)):0;
+    const over=depTotal>p.budgetTotal&&p.budgetTotal>0;
+    const catDep={mo:0,mat:0,ss:0,eq:0,fg:0};
+    dep.forEach(d=>{if(catDep[d.cat]!==undefined)catDep[d.cat]+=d.montant;});
+    return `<div class="projet-card">
+      <div class="pc-head" onclick="toggleProjet('pc-${p.id}')">
+        <div class="pc-head-left">
+          <div class="pc-type-dot" style="background:${TYPES_COLOR[p.type]||'#6B7280'}"></div>
+          <div>
+            <div class="pc-name">${p.ref} — ${p.nom}</div>
+            <div class="pc-ref">${p.type} · ${p.lieu||'—'} · Chef : ${p.chef||'—'} · ${p.debut||'?'} → ${p.fin||'?'}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="text-align:right;min-width:120px">
+            <div style="font-size:.78rem;font-weight:700;color:${over?'var(--rouge)':'var(--eco)'}">${fmtN(depTotal)} / ${fmtN(p.budgetTotal)} FCFA</div>
+            <div style="font-size:.65rem;color:var(--gris-l)">${pct}% exécuté</div>
+          </div>
+          <span class="badge b-${p.statut==='En cours'?'encours':p.statut==='Terminé'?'termine':p.statut==='Planifié'?'planifie':'suspendu'}">${p.statut}</span>
+          <div style="display:flex;gap:4px">
+            <select class="btn btn-xs btn-sec" style="padding:3px" onchange="changeStatutProjet('${p.id}',this.value)">
+              <option>Statut</option><option>En cours</option><option>Planifié</option><option>Terminé</option><option>Suspendu</option>
+            </select>
+            <button class="btn btn-xs btn-bleu no-print" onclick="editProjet('${p.id}')">✏️</button>
+            <button class="btn btn-xs btn-ocre no-print" onclick="exportExcelProjet('${p.id}')">📥 Excel</button>
+            <button class="btn btn-xs btn-sec no-print" onclick="deleteProjet('${p.id}')">🗑</button>
+          </div>
+          <span style="color:var(--gris-l)">▾</span>
+        </div>
+      </div>
+      <div class="pc-body" id="pc-${p.id}">
+        <div class="pc-stats">
+          <div class="pc-stat"><div class="pc-stat-val">${fmtN(p.budgetTotal)}</div><div class="pc-stat-lbl">Budget FCFA</div></div>
+          <div class="pc-stat"><div class="pc-stat-val" style="color:${over?'var(--rouge)':'var(--nuit)'}">${fmtN(depTotal)}</div><div class="pc-stat-lbl">Dépensé FCFA</div></div>
+          <div class="pc-stat"><div class="pc-stat-val" style="color:${over?'var(--rouge)':'var(--eco)'}">${fmtN(p.budgetTotal-depTotal)}</div><div class="pc-stat-lbl">Reste FCFA</div></div>
+          <div class="pc-stat"><div class="pc-stat-val">${dep.length}</div><div class="pc-stat-lbl">Dépenses saisies</div></div>
+        </div>
+        <div class="prog-wrap" style="margin-bottom:10px">
+          <div class="prog-fill ${over?'pf-rouge':'pf-eco'}" style="width:${Math.min(100,pct)}%"></div>
+        </div>
+        <div style="font-size:.7rem;color:var(--gris-l);margin-bottom:12px">${pct}% du budget consommé${over?' — ⚠️ DÉPASSEMENT':''}</div>
+        <div class="cat-colors" style="margin-bottom:12px">
+          ${Object.entries(catDep).map(([k,v])=>`
+            <div class="cat-box ${CATS[k].ccls}">
+              <div class="cat-val">${fmtN(v)}</div>
+              <div class="cat-lbl">${CATS[k].label}</div>
+              <div class="cat-lbl" style="font-size:.55rem">/ budget ${fmtN(p.budget[k])}</div>
+            </div>`).join('')}
+        </div>
+        ${p.desc?`<div style="font-size:.78rem;color:var(--gris);background:var(--ivoire);padding:10px;border-radius:5px">${p.desc}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleProjet(id){const el=document.getElementById(id);if(el)el.classList.toggle('open');}
+function changeStatutProjet(id,s){if(!s||s==='Statut')return;const p=projetById(id);if(p){p.statut=s;save();renderProjets();}}
+function deleteProjet(id){if(confirm('Supprimer ce projet et toutes ses dépenses ?')){DB.projets=DB.projets.filter(p=>p.id!==id);DB.depenses=DB.depenses.filter(d=>d.projetId!==id);save();renderProjets();updateBadges();}}
+
+// ═══════════════════════════════════════════════
+//  DÉPENSES
+// ═══════════════════════════════════════════════
+document.addEventListener('input',function(e){
+  if(['dep-qte','dep-pu'].includes(e.target?.id)){
+    const q=parseFloat(document.getElementById('dep-qte').value)||0;
+    const p=parseFloat(document.getElementById('dep-pu').value)||0;
+    document.getElementById('dep-preview').textContent=fmtN(q*p)+' FCFA';
+  }
+});
+
+function addDepense(){
+  const projetId=document.getElementById('dep-projet').value;
+  if(!projetId){alert('Sélectionnez un projet.');return;}
+  const label=document.getElementById('dep-label').value.trim();
+  if(!label){alert('Entrez une désignation.');return;}
+  const qte=parseFloat(document.getElementById('dep-qte').value)||0;
+  const pu=parseFloat(document.getElementById('dep-pu').value)||0;
+  const fourId=document.getElementById('dep-four').value;
+  DB.depenses.push({
+    id:uid(),projetId,cat:document.getElementById('dep-cat').value,
+    date:document.getElementById('dep-date').value||today(),
+    fourId,fourNom:fourById(fourId)?.nom||document.getElementById('dep-four').options[document.getElementById('dep-four').selectedIndex]?.text||'—',
+    label,qte,pu,montant:qte*pu,
+    mode:document.getElementById('dep-mode').value,
+    piece:document.getElementById('dep-piece').value,
+    obs:document.getElementById('dep-obs').value,
+    datec:today()
+  });
+  ['dep-label','dep-piece','dep-obs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('dep-qte').value='1';
+  document.getElementById('dep-pu').value='0';
+  document.getElementById('dep-preview').textContent='0 FCFA';
+  save();renderDepenses();updateBadges();
+  if(currentView==='dashboard') setTimeout(renderCharts,80);
+}
+
+function renderDepenses(){
+  const filtProjet=document.getElementById('f-projet')?.value||'';
+  const filtCat=document.getElementById('f-cat')?.value||'';
+  const filtDu=document.getElementById('f-du')?.value||'';
+  const filtAu=document.getElementById('f-au')?.value||'';
+  let deps=[...DB.depenses].reverse();
+  if(filtProjet) deps=deps.filter(d=>d.projetId===filtProjet);
+  if(filtCat)    deps=deps.filter(d=>d.cat===filtCat);
+  if(filtDu)     deps=deps.filter(d=>d.date>=filtDu);
+  if(filtAu)     deps=deps.filter(d=>d.date<=filtAu);
+  const total=deps.reduce((s,d)=>s+d.montant,0);
+  document.getElementById('dep-total').textContent=fmtN(total)+' FCFA';
+  const tb=document.getElementById('dep-tbody');
+  if(!deps.length){tb.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--gris-l);padding:24px">Aucune dépense</td></tr>';return;}
+  tb.innerHTML=deps.map(d=>{
+    const p=projetById(d.projetId);
+    return `<tr>
+      <td>${d.date}</td>
+      <td><strong>${p?.ref||'—'}</strong><br><small style="color:var(--gris-l)">${p?.nom||'—'}</small></td>
+      <td><span class="badge ${CATS[d.cat]?.cls||''}">${CATS[d.cat]?.label||d.cat}</span></td>
+      <td>${d.label}</td>
+      <td class="tbl-num">${fmtN(d.qte)}</td>
+      <td class="tbl-num">${fmtN(d.pu)}</td>
+      <td class="tbl-num" style="font-weight:700">${fmtN(d.montant)}</td>
+      <td>${d.mode}</td>
+      <td>${d.piece||'—'}</td>
+      <td class="actions no-print">
+        <button class="btn btn-xs btn-bleu" onclick="editDep('${d.id}')">✏️</button>
+        <button class="btn btn-xs btn-sec" onclick="deleteDep('${d.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function deleteDep(id){if(confirm('Supprimer cette dépense ?')){DB.depenses=DB.depenses.filter(d=>d.id!==id);save();renderDepenses();updateBadges();}}
+
+// ═══════════════════════════════════════════════
+//  BUDGET & ÉCARTS
+// ═══════════════════════════════════════════════
+function renderBudget(){
+  const selId=document.getElementById('bud-projet')?.value||'';
+  const el=document.getElementById('budget-content');
+  const projets=selId?DB.projets.filter(p=>p.id===selId):DB.projets;
+  if(!projets.length){el.innerHTML='<p style="color:var(--gris-l);font-size:.82rem;text-align:center;padding:30px">Aucun projet.</p>';return;}
+
+  el.innerHTML=projets.map(p=>{
+    const dep=DB.depenses.filter(d=>d.projetId===p.id);
+    const depTotal=dep.reduce((s,d)=>s+d.montant,0);
+    const depByCat={mo:0,mat:0,ss:0,eq:0,fg:0};
+    dep.forEach(d=>{if(depByCat[d.cat]!==undefined)depByCat[d.cat]+=d.montant;});
+    const pct=p.budgetTotal?Math.min(200,Math.round(depTotal/p.budgetTotal*100)):0;
+    const over=depTotal>p.budgetTotal;
+
+    const rows=Object.entries(CATS).map(([k,c])=>{
+      const bud=p.budget[k]||0;
+      const real=depByCat[k]||0;
+      const ecart=bud-real;
+      const pctCat=bud?Math.round(real/bud*100):0;
+      return `<tr>
+        <td><span class="badge ${c.cls}">${c.label}</span></td>
+        <td class="tbl-num">${fmtN(bud)}</td>
+        <td class="tbl-num">${fmtN(real)}</td>
+        <td class="tbl-num" style="color:${ecart<0?'var(--rouge)':'var(--eco)'};font-weight:700">${ecart>=0?'+':''}${fmtN(ecart)}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="prog-wrap" style="flex:1"><div class="prog-fill ${pctCat>100?'pf-rouge':pctCat>80?'pf-ocre':'pf-eco'}" style="width:${Math.min(100,pctCat)}%"></div></div>
+            <span style="font-size:.7rem;font-weight:700;color:${pctCat>100?'var(--rouge)':'var(--gris)'}">${pctCat}%</span>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+
+    return `<div style="margin-bottom:20px">
+      <div style="background:var(--nuit);color:#fff;padding:14px 18px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:700">${p.ref} — ${p.nom}</div>
+          <div style="font-size:.7rem;color:var(--gris-l);margin-top:2px">${p.type} · ${p.lieu||'—'} · ${p.debut||'?'} → ${p.fin||'?'}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:.85rem;font-weight:700;color:${over?'#FCA5A5':'#6EE7B7'}">${fmtN(depTotal)} / ${fmtN(p.budgetTotal)} FCFA</div>
+          <div style="font-size:.65rem;color:var(--gris-l)">${pct}% consommé${over?' ⚠️ DÉPASSEMENT':''}</div>
+        </div>
+      </div>
+      <table class="tbl" style="border-radius:0 0 8px 8px;overflow:hidden">
+        <thead><tr><th>Catégorie</th><th style="text-align:right">Budget prévu</th><th style="text-align:right">Réel engagé</th><th style="text-align:right">Écart</th><th style="min-width:150px">Avancement</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot>
+          <tr style="background:var(--eco-xl)">
+            <td style="font-weight:700;font-size:.82rem">TOTAL</td>
+            <td class="tbl-num" style="font-weight:700">${fmtN(p.budgetTotal)}</td>
+            <td class="tbl-num" style="font-weight:700;color:${over?'var(--rouge)':'var(--eco)'}">${fmtN(depTotal)}</td>
+            <td class="tbl-num" style="font-weight:700;color:${p.budgetTotal-depTotal<0?'var(--rouge)':'var(--eco)'}">${p.budgetTotal-depTotal>=0?'+':''}${fmtN(p.budgetTotal-depTotal)}</td>
+            <td>
+              <div style="display:flex;align-items:center;gap:6px">
+                <div class="prog-wrap" style="flex:1"><div class="prog-fill ${over?'pf-rouge':'pf-eco'}" style="width:${Math.min(100,pct)}%"></div></div>
+                <span style="font-size:.7rem;font-weight:700">${pct}%</span>
+              </div>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <!-- Dépenses détaillées du projet -->
+      <div style="margin-top:12px;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+        <div style="background:var(--eco-xl);padding:8px 14px;font-size:.72rem;font-weight:700;color:var(--eco);display:flex;justify-content:space-between">
+          <span>📋 Détail des dépenses (${dep.length})</span>
+          <button class="btn btn-xs btn-ocre no-print" onclick="exportExcelProjet('${p.id}')">📥 Export Excel</button>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:.74rem">
+          <thead><tr style="background:var(--ivoire)">
+            <th style="padding:6px 10px;text-align:left;font-weight:600;color:var(--gris);border-bottom:1px solid var(--border)">Date</th>
+            <th style="padding:6px 10px;text-align:left;font-weight:600;color:var(--gris);border-bottom:1px solid var(--border)">Catégorie</th>
+            <th style="padding:6px 10px;text-align:left;font-weight:600;color:var(--gris);border-bottom:1px solid var(--border)">Désignation</th>
+            <th style="padding:6px 10px;text-align:left;font-weight:600;color:var(--gris);border-bottom:1px solid var(--border)">Fournisseur</th>
+            <th style="padding:6px 10px;text-align:right;font-weight:600;color:var(--gris);border-bottom:1px solid var(--border)">Montant FCFA</th>
+            <th style="padding:6px 10px;text-align:left;font-weight:600;color:var(--gris);border-bottom:1px solid var(--border)">Pièce</th>
+          </tr></thead>
+          <tbody>${dep.length?dep.map((d,i)=>`<tr style="background:${i%2===0?'#fff':var_ivoire()}">
+            <td style="padding:5px 10px;border-bottom:1px solid var(--border)">${d.date}</td>
+            <td style="padding:5px 10px;border-bottom:1px solid var(--border)"><span class="badge ${CATS[d.cat]?.cls}">${CATS[d.cat]?.label||d.cat}</span></td>
+            <td style="padding:5px 10px;border-bottom:1px solid var(--border)">${d.label}</td>
+            <td style="padding:5px 10px;border-bottom:1px solid var(--border)">${d.fourNom||'—'}</td>
+            <td style="padding:5px 10px;border-bottom:1px solid var(--border);text-align:right;font-weight:700">${fmtN(d.montant)}</td>
+            <td style="padding:5px 10px;border-bottom:1px solid var(--border)">${d.piece||'—'}</td>
+          </tr>`).join(''):'<tr><td colspan="6" style="text-align:center;padding:14px;color:var(--gris-l)">Aucune dépense saisie</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function var_ivoire(){return '#F4F7F6';}
+
+// ═══════════════════════════════════════════════
+//  PERSONNEL & FOURNISSEURS
+// ═══════════════════════════════════════════════
+function addPersonnel(){
+  const nom=document.getElementById('pers-nom').value.trim();if(!nom)return;
+  DB.personnel.push({id:uid(),nom,fon:document.getElementById('pers-fon').value,
+    tel:document.getElementById('pers-tel').value,
+    sal:parseFloat(document.getElementById('pers-sal').value)||0,
+    projetId:document.getElementById('pers-projet').value,
+    statut:document.getElementById('pers-statut').value,datec:today()});
+  document.getElementById('pers-nom').value='';
+  document.getElementById('pers-tel').value='';
+  document.getElementById('pers-sal').value='0';
+  save();renderPersonnel();updateBadges();
+}
+function renderPersonnel(){
+  const tb=document.getElementById('pers-tbody');
+  document.getElementById('pers-count').textContent=DB.personnel.length+' agent(s)';
+  if(!DB.personnel.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--gris-l);padding:24px">Aucun agent</td></tr>';return;}
+  tb.innerHTML=DB.personnel.map(p=>`<tr>
+    <td><strong>${p.nom}</strong></td>
+    <td>${p.fon}</td><td>${p.tel||'—'}</td>
+    <td>${projetById(p.projetId)?.ref||'—'}</td>
+    <td class="tbl-num">${fmtN(p.sal)} FCFA/j</td>
+    <td><span class="badge ${p.statut==='Actif'?'b-ok':p.statut==='Congé'?'b-encours':'b-suspendu'}">${p.statut}</span></td>
+    <td class="actions no-print">
+      <button class="btn btn-xs btn-bleu" onclick="editPers('${p.id}')">✏️</button>
+      <button class="btn btn-xs btn-sec" onclick="deletePers('${p.id}')">🗑</button>
+    </td>
+  </tr>`).join('');
+}
+function deletePers(id){if(confirm('Supprimer ?')){DB.personnel=DB.personnel.filter(p=>p.id!==id);save();renderPersonnel();updateBadges();}}
+
+function addFournisseur(){
+  const nom=document.getElementById('f-nom').value.trim();if(!nom)return;
+  DB.fournisseurs.push({id:uid(),nom,spec:document.getElementById('f-spec').value,
+    contact:document.getElementById('f-contact').value,tel:document.getElementById('f-tel').value,
+    ville:document.getElementById('f-ville').value,email:document.getElementById('f-email').value,datec:today()});
+  ['f-nom','f-contact','f-tel','f-ville','f-email'].forEach(id=>document.getElementById(id).value='');
+  save();renderFournisseurs();refreshSelects();updateBadges();
+}
+function renderFournisseurs(){
+  const tb=document.getElementById('four-tbody');
+  document.getElementById('four-count').textContent=DB.fournisseurs.length+' fournisseur(s)';
+  if(!DB.fournisseurs.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--gris-l);padding:24px">Aucun fournisseur</td></tr>';return;}
+  tb.innerHTML=DB.fournisseurs.map(f=>{
+    const mtt=DB.depenses.filter(d=>d.fourId===f.id).reduce((s,d)=>s+d.montant,0);
+    return `<tr>
+      <td><strong>${f.nom}</strong></td><td>${f.spec}</td>
+      <td>${f.contact||'—'}</td><td>${f.tel||'—'}</td><td>${f.ville||'—'}</td>
+      <td class="tbl-num" style="font-weight:700">${fmtN(mtt)} FCFA</td>
+      <td class="actions no-print">
+        <button class="btn btn-xs btn-bleu" onclick="editFour('${f.id}')">✏️</button>
+        <button class="btn btn-xs btn-sec" onclick="deleteFour('${f.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+function deleteFour(id){if(confirm('Supprimer ?')){DB.fournisseurs=DB.fournisseurs.filter(f=>f.id!==id);save();renderFournisseurs();refreshSelects();updateBadges();}}
+
+// ═══════════════════════════════════════════════
+//  RAPPORTS
+// ═══════════════════════════════════════════════
+function renderRapports(){
+  const budgetTotal=DB.projets.reduce((s,p)=>s+p.budgetTotal,0);
+  const depTotal=DB.depenses.reduce((s,d)=>s+d.montant,0);
+  const taux=budgetTotal?Math.round(depTotal/budgetTotal*100):0;
+  const term=DB.projets.filter(p=>p.statut==='Terminé').length;
+  const pers=DB.personnel.filter(p=>p.statut==='Actif').length;
+  document.getElementById('r-bud').textContent=fmtN(budgetTotal);
+  document.getElementById('r-dep').textContent=fmtN(depTotal);
+  document.getElementById('r-taux').textContent=taux+'%';
+  document.getElementById('r-term').textContent=term;
+  document.getElementById('r-pers').textContent=pers;
+
+  // Budget vs Réel
+  const bvr=document.getElementById('r-bvr');
+  if(!DB.projets.length){bvr.innerHTML='<p style="color:var(--gris-l);font-size:.8rem">Aucune donnée.</p>';}
+  else bvr.innerHTML=DB.projets.map(p=>{
+    const dep=DB.depenses.filter(d=>d.projetId===p.id).reduce((s,d)=>s+d.montant,0);
+    const pct=p.budgetTotal?Math.min(100,Math.round(dep/p.budgetTotal*100)):0;
+    const over=dep>p.budgetTotal;
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:3px">
+        <span><strong>${p.ref}</strong> ${p.nom}</span>
+        <span style="color:${over?'var(--rouge)':'var(--eco)'};font-weight:700">${pct}%</span>
+      </div>
+      <div class="prog-wrap"><div class="prog-fill ${over?'pf-rouge':'pf-eco'}" style="width:${Math.min(100,pct)}%"></div></div>
+      <div style="font-size:.67rem;color:var(--gris-l);margin-top:2px">${fmtN(dep)} / ${fmtN(p.budgetTotal)} FCFA</div>
+    </div>`;
+  }).join('');
+
+  // Cats
+  const catTotaux={mo:0,mat:0,ss:0,eq:0,fg:0};
+  DB.depenses.forEach(d=>{if(catTotaux[d.cat]!==undefined)catTotaux[d.cat]+=d.montant;});
+  const maxCat=Math.max(...Object.values(catTotaux),1);
+  document.getElementById('r-cats').innerHTML=Object.entries(catTotaux).map(([k,v])=>`
+    <div style="margin-bottom:9px">
+      <div style="display:flex;justify-content:space-between;font-size:.77rem;margin-bottom:3px">
+        <span class="badge ${CATS[k].cls}">${CATS[k].label}</span>
+        <strong>${fmtN(v)} FCFA</strong>
+      </div>
+      <div class="prog-wrap"><div class="prog-fill" style="width:${Math.round(v/maxCat*100)}%;background:${CATS[k].color}"></div></div>
+    </div>`).join('');
+
+  // Top fournisseurs
+  const fourTot={};
+  DB.depenses.forEach(d=>{if(d.fourNom&&d.fourNom!=='—')fourTot[d.fourNom]=(fourTot[d.fourNom]||0)+d.montant;});
+  const sorted=Object.entries(fourTot).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const maxF=sorted[0]?.[1]||1;
+  document.getElementById('r-fours').innerHTML=sorted.length?sorted.map(([n,v])=>`
+    <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:.77rem;margin-bottom:3px"><span>${n}</span><strong>${fmtN(v)} FCFA</strong></div>
+      <div class="prog-wrap"><div class="prog-fill pf-eco" style="width:${Math.round(v/maxF*100)}%"></div></div>
+    </div>`).join(''):'<p style="color:var(--gris-l);font-size:.8rem">Aucune donnée.</p>';
+
+  // Dépenses par mois
+  const mois={};
+  DB.depenses.forEach(d=>{const m=d.date?.slice(0,7)||'?';mois[m]=(mois[m]||0)+d.montant;});
+  const sortedM=Object.entries(mois).sort();
+  const maxM=sortedM.reduce((m,x)=>Math.max(m,x[1]),1);
+  document.getElementById('r-mois').innerHTML=sortedM.length?sortedM.map(([m,v])=>`
+    <div style="margin-bottom:7px">
+      <div style="display:flex;justify-content:space-between;font-size:.77rem;margin-bottom:3px"><span>${m}</span><strong>${fmtN(v)} FCFA</strong></div>
+      <div class="prog-wrap"><div class="prog-fill pf-ocre" style="width:${Math.round(v/maxM*100)}%;background:var(--ocre)"></div></div>
+    </div>`).join(''):'<p style="color:var(--gris-l);font-size:.8rem">Aucune donnée.</p>';
+}
+
+// ═══════════════════════════════════════════════
+//  EXPORT EXCEL (via SheetJS CDN)
+// ═══════════════════════════════════════════════
+function loadSheetJS(cb){
+  if(window.XLSX){cb();return;}
+  const s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  s.onload=cb;document.head.appendChild(s);
+}
+
+function exportExcelProjet(pid){
+  // si pas de pid, prendre celui du select budget
+  if(!pid){
+    pid=document.getElementById('bud-projet')?.value||
+        document.getElementById('f-projet')?.value||'';
+  }
+  loadSheetJS(()=>{
+    const wb=XLSX.utils.book_new();
+    const projets=pid?DB.projets.filter(p=>p.id===pid):DB.projets;
+    if(!projets.length){alert('Aucun projet sélectionné.');return;}
+
+    projets.forEach(p=>{
+      const dep=DB.depenses.filter(d=>d.projetId===p.id);
+
+      // ── Feuille 1 : Budget vs Réel ──
+      const depByCat={mo:0,mat:0,ss:0,eq:0,fg:0};
+      dep.forEach(d=>{if(depByCat[d.cat]!==undefined)depByCat[d.cat]+=d.montant;});
+      const budRows=[
+        ['ECOBUILD — RAPPORT BUDGÉTAIRE'],
+        [`Projet : ${p.ref} — ${p.nom}`],
+        [`Type : ${p.type}   |   Lieu : ${p.lieu||'—'}   |   Maître d'ouvrage : ${p.moa||'—'}`],
+        [`Chef de projet : ${p.chef||'—'}   |   Début : ${p.debut||'—'}   |   Fin prévue : ${p.fin||'—'}`],
+        [`Édité le : ${new Date().toLocaleDateString('fr-FR')}`],
+        [],
+        ['Catégorie','Budget prévu (FCFA)','Réel engagé (FCFA)','Écart (FCFA)','% Consommé','Statut'],
+        ...Object.entries(CATS).map(([k,c])=>{
+          const bud=p.budget[k]||0;const real=depByCat[k]||0;
+          const ecart=bud-real;const pct=bud?Math.round(real/bud*100):0;
+          return[c.label,bud,real,ecart,pct/100,pct>100?'⚠️ DÉPASSEMENT':pct>80?'⚡ Attention':'✅ OK'];
+        }),
+        [],
+        ['TOTAL',p.budgetTotal,dep.reduce((s,d)=>s+d.montant,0),
+          p.budgetTotal-dep.reduce((s,d)=>s+d.montant,0),
+          p.budgetTotal?dep.reduce((s,d)=>s+d.montant,0)/p.budgetTotal:0,''],
+      ];
+      const wsBud=XLSX.utils.aoa_to_sheet(budRows);
+      // Formats
+      wsBud['!cols']=[{wch:22},{wch:20},{wch:20},{wch:15},{wch:14},{wch:20}];
+      wsBud['!merges']=[{s:{r:0,c:0},e:{r:0,c:5}}];
+      XLSX.utils.book_append_sheet(wb,wsBud,`Budget_${p.ref}`.slice(0,31));
+
+      // ── Feuille 2 : Dépenses chronologiques ──
+      const depRows=[
+        ['ECOBUILD — DÉTAIL DES DÉPENSES'],
+        [`Projet : ${p.ref} — ${p.nom}`],
+        [`Période : ${dep.length?dep[0].date:''} → ${dep.length?dep[dep.length-1].date:''}`],
+        [],
+        ['Date','Catégorie','Désignation','Fournisseur','Quantité','Prix unitaire','Montant FCFA','Mode paiement','N° Pièce','Observation'],
+        ...dep.sort((a,b)=>a.date.localeCompare(b.date)).map(d=>[
+          d.date,CATS[d.cat]?.label||d.cat,d.label,d.fourNom||'—',
+          d.qte,d.pu,d.montant,d.mode,d.piece||'—',d.obs||'—'
+        ]),
+        [],
+        ['','','','','','TOTAL',dep.reduce((s,d)=>s+d.montant,0),'','',''],
+      ];
+      const wsDep=XLSX.utils.aoa_to_sheet(depRows);
+      wsDep['!cols']=[{wch:12},{wch:16},{wch:28},{wch:20},{wch:10},{wch:14},{wch:16},{wch:14},{wch:14},{wch:20}];
+      wsDep['!merges']=[{s:{r:0,c:0},e:{r:0,c:9}}];
+      XLSX.utils.book_append_sheet(wb,wsDep,`Depenses_${p.ref}`.slice(0,31));
+
+      // ── Feuille 3 : Dépenses par catégorie ──
+      const catRows=[
+        ['ECOBUILD — DÉPENSES PAR CATÉGORIE'],
+        [`Projet : ${p.ref} — ${p.nom}`],
+        [],
+      ];
+      Object.entries(CATS).forEach(([k,c])=>{
+        const catDep=dep.filter(d=>d.cat===k);
+        if(!catDep.length)return;
+        catRows.push([c.label.toUpperCase(),'','','','','','','']);
+        catRows.push(['Date','Désignation','Fournisseur','Qté','PU','Montant','Paiement','Pièce']);
+        catDep.forEach(d=>catRows.push([d.date,d.label,d.fourNom||'—',d.qte,d.pu,d.montant,d.mode,d.piece||'—']));
+        catRows.push(['','','','','Sous-total',catDep.reduce((s,d)=>s+d.montant,0),'','']);
+        catRows.push([]);
+      });
+      const wsCat=XLSX.utils.aoa_to_sheet(catRows);
+      wsCat['!cols']=[{wch:12},{wch:28},{wch:20},{wch:8},{wch:12},{wch:14},{wch:12},{wch:14}];
+      XLSX.utils.book_append_sheet(wb,wsCat,`Categories_${p.ref}`.slice(0,31));
+    });
+
+    // ── Feuille synthèse globale ──
+    const synthRows=[
+      ['ECOBUILD — SYNTHÈSE GLOBALE TOUS PROJETS'],
+      [`Édité le : ${new Date().toLocaleDateString('fr-FR')}`],
+      [],
+      ['Projet','Type','Chef','Budget total','Dépensé','Écart','%','Statut'],
+      ...DB.projets.map(p=>{
+        const dep=DB.depenses.filter(d=>d.projetId===p.id).reduce((s,d)=>s+d.montant,0);
+        return[p.nom,p.type,p.chef||'—',p.budgetTotal,dep,p.budgetTotal-dep,
+          p.budgetTotal?dep/p.budgetTotal:0,p.statut];
+      }),
+      [],
+      ['TOTAL','','',
+        DB.projets.reduce((s,p)=>s+p.budgetTotal,0),
+        DB.depenses.reduce((s,d)=>s+d.montant,0),
+        DB.projets.reduce((s,p)=>s+p.budgetTotal,0)-DB.depenses.reduce((s,d)=>s+d.montant,0),
+        '',''],
+    ];
+    const wsSynth=XLSX.utils.aoa_to_sheet(synthRows);
+    wsSynth['!cols']=[{wch:28},{wch:16},{wch:18},{wch:16},{wch:14},{wch:14},{wch:10},{wch:12}];
+    wsSynth['!merges']=[{s:{r:0,c:0},e:{r:0,c:7}}];
+    XLSX.utils.book_append_sheet(wb,wsSynth,'Synthese_Globale');
+
+    const fname=pid?`Ecobuild_${DB.projets.find(p=>p.id===pid)?.ref||'projet'}_rapport.xlsx`:'Ecobuild_rapport_complet.xlsx';
+    XLSX.writeFile(wb,fname);
+  });
+}
+
+function exportExcel(){ exportExcelProjet(''); }
+
+// ═══════════════════════════════════════════════
+//  DÉPÔTS
+// ═══════════════════════════════════════════════
+let depotTab = 'compte';
+
+function switchDepotTab(tab) {
+  depotTab = tab;
+  document.getElementById('depot-mode-compte').style.display = tab==='compte' ? '' : 'none';
+  document.getElementById('depot-mode-cash').style.display   = tab==='cash'   ? '' : 'none';
+  document.getElementById('tab-compte').classList.toggle('active', tab==='compte');
+  document.getElementById('tab-cash').classList.toggle('active',   tab==='cash');
+}
+
+function previewDepot(type) {
+  const id = type==='compte' ? 'dc-montant' : 'dh-montant';
+  const prevId = type==='compte' ? 'prev-compte' : 'prev-cash';
+  const val = parseFloat(document.getElementById(id).value)||0;
+  document.getElementById(prevId).textContent = fmtN(val)+' FCFA';
+}
+
+function addDepot(type) {
+  let d = {};
+  if (type === 'compte') {
+    const montant = parseFloat(document.getElementById('dc-montant').value)||0;
+    if (!montant) { alert('Entrez un montant.'); return; }
+    d = {
+      id:uid(), type:'compte',
+      date:document.getElementById('dc-date').value||today(),
+      montant,
+      banque:document.getElementById('dc-banque').value,
+      numcompte:document.getElementById('dc-numcompte').value,
+      projetId:document.getElementById('dc-projet').value,
+      deposant:document.getElementById('dc-deposant').value,
+      piece:document.getElementById('dc-piece').value,
+      origine:document.getElementById('dc-origine').value,
+      obs:document.getElementById('dc-obs').value,
+      datec:today()
+    };
+    ['dc-montant','dc-banque','dc-numcompte','dc-deposant','dc-piece','dc-obs']
+      .forEach(id=>document.getElementById(id).value=id==='dc-montant'?'0':'');
+    document.getElementById('prev-compte').textContent='0 FCFA';
+  } else {
+    const montant = parseFloat(document.getElementById('dh-montant').value)||0;
+    if (!montant) { alert('Entrez un montant.'); return; }
+    d = {
+      id:uid(), type:'cash',
+      date:document.getElementById('dh-date').value||today(),
+      montant,
+      responsable:document.getElementById('dh-responsable').value,
+      projetId:document.getElementById('dh-projet').value,
+      piece:document.getElementById('dh-piece').value,
+      origine:document.getElementById('dh-origine').value,
+      obs:document.getElementById('dh-obs').value,
+      datec:today()
+    };
+    ['dh-montant','dh-responsable','dh-piece','dh-obs']
+      .forEach(id=>document.getElementById(id).value=id==='dh-montant'?'0':'');
+    document.getElementById('prev-cash').textContent='0 FCFA';
+  }
+  DB.depots.push(d);
+  save(); renderDepots(); updateBadges();
+  if(currentView==='dashboard') setTimeout(renderCharts,80);
+}
+
+function renderDepots() {
+  const filtType   = document.getElementById('df-type')?.value||'';
+  const filtProjet = document.getElementById('df-projet')?.value||'';
+  const filtDu     = document.getElementById('df-du')?.value||'';
+  const filtAu     = document.getElementById('df-au')?.value||'';
+
+  let deps = [...DB.depots];
+  if (filtType)   deps = deps.filter(d=>d.type===filtType);
+  if (filtProjet) deps = deps.filter(d=>d.projetId===filtProjet);
+  if (filtDu)     deps = deps.filter(d=>d.date>=filtDu);
+  if (filtAu)     deps = deps.filter(d=>d.date<=filtAu);
+
+  const comptes = deps.filter(d=>d.type==='compte');
+  const cashs   = deps.filter(d=>d.type==='cash');
+  const totComp = comptes.reduce((s,d)=>s+d.montant,0);
+  const totCash = cashs.reduce((s,d)=>s+d.montant,0);
+  const totAll  = totComp+totCash;
+
+  // KPIs
+  const allDep = DB.depots;
+  document.getElementById('tr-total').textContent   = fmtN(allDep.reduce((s,d)=>s+d.montant,0));
+  document.getElementById('tr-compte').textContent  = fmtN(allDep.filter(d=>d.type==='compte').reduce((s,d)=>s+d.montant,0));
+  document.getElementById('tr-cash').textContent    = fmtN(allDep.filter(d=>d.type==='cash').reduce((s,d)=>s+d.montant,0));
+  document.getElementById('tr-nb').textContent      = allDep.length;
+  document.getElementById('tr-total-compte').textContent = fmtN(totComp)+' FCFA';
+  document.getElementById('tr-total-cash').textContent   = fmtN(totCash)+' FCFA';
+
+  // Tableau compte
+  const tbc = document.getElementById('depot-compte-tbody');
+  if (!comptes.length) {
+    tbc.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--gris-l);padding:20px">Aucun dépôt bancaire</td></tr>';
+  } else {
+    tbc.innerHTML = [...comptes].sort((a,b)=>b.date.localeCompare(a.date)).map(d=>`<tr>
+      <td>${d.date}</td>
+      <td class="tbl-num" style="font-weight:700;color:var(--bleu)">${fmtN(d.montant)}</td>
+      <td>${d.banque||'—'}</td>
+      <td>${projetById(d.projetId)?.ref||'—'}</td>
+      <td>${d.deposant||'—'}</td>
+      <td style="font-size:.72rem;color:var(--gris)">${d.origine||'—'}</td>
+      <td>${d.piece||'—'}</td>
+      <td class="actions no-print">
+        <button class="btn btn-xs btn-bleu" onclick="editDepot('${d.id}')">✏️</button>
+        <button class="btn btn-xs btn-sec" onclick="deleteDepot('${d.id}')">🗑</button>
+      </td>
+    </tr>`).join('');
+  }
+
+  // Tableau cash
+  const tbh = document.getElementById('depot-cash-tbody');
+  if (!cashs.length) {
+    tbh.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--gris-l);padding:20px">Aucun dépôt cash</td></tr>';
+  } else {
+    tbh.innerHTML = [...cashs].sort((a,b)=>b.date.localeCompare(a.date)).map(d=>`<tr>
+      <td>${d.date}</td>
+      <td class="tbl-num" style="font-weight:700;color:var(--ocre)">${fmtN(d.montant)}</td>
+      <td>${d.responsable||'—'}</td>
+      <td>${projetById(d.projetId)?.ref||'—'}</td>
+      <td style="font-size:.72rem;color:var(--gris)">${d.origine||'—'}</td>
+      <td>${d.piece||'—'}</td>
+      <td class="actions no-print">
+        <button class="btn btn-xs btn-bleu" onclick="editDepot('${d.id}')">✏️</button>
+        <button class="btn btn-xs btn-sec" onclick="deleteDepot('${d.id}')">🗑</button>
+      </td>
+    </tr>`).join('');
+  }
+
+  // Synthèse par projet
+  const tb = document.getElementById('synth-depots-tbody');
+  const projetsSynt = DB.projets.length ? DB.projets : [];
+  if (!projetsSynt.length) {
+    tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--gris-l);padding:20px">Aucun projet.</td></tr>';
+  } else {
+    tb.innerHTML = projetsSynt.map(p=>{
+      const dComp = DB.depots.filter(d=>d.projetId===p.id&&d.type==='compte').reduce((s,d)=>s+d.montant,0);
+      const dCash = DB.depots.filter(d=>d.projetId===p.id&&d.type==='cash').reduce((s,d)=>s+d.montant,0);
+      const total = dComp+dCash;
+      const dep   = DB.depenses.filter(d=>d.projetId===p.id).reduce((s,d)=>s+d.montant,0);
+      const solde = total-dep;
+      return `<tr>
+        <td><strong>${p.ref}</strong><br><small style="color:var(--gris-l)">${p.nom}</small></td>
+        <td class="tbl-num" style="color:var(--bleu);font-weight:600">${fmtN(dComp)}</td>
+        <td class="tbl-num" style="color:var(--ocre);font-weight:600">${fmtN(dCash)}</td>
+        <td class="tbl-num" style="font-weight:700">${fmtN(total)}</td>
+        <td class="tbl-num" style="color:var(--rouge);font-weight:600">${fmtN(dep)}</td>
+        <td class="tbl-num" style="font-weight:700;color:${solde>=0?'var(--eco)':'var(--rouge)'}">${solde>=0?'+':''}${fmtN(solde)}</td>
+      </tr>`;
+    }).join('');
+    // Ligne total
+    const totDComp=DB.depots.filter(d=>d.type==='compte').reduce((s,d)=>s+d.montant,0);
+    const totDCash=DB.depots.filter(d=>d.type==='cash').reduce((s,d)=>s+d.montant,0);
+    const totDep=DB.depenses.reduce((s,d)=>s+d.montant,0);
+    const soldeGlob=totDComp+totDCash-totDep;
+    tb.innerHTML+=`<tr style="background:var(--eco-xl);font-weight:700">
+      <td>TOTAL</td>
+      <td class="tbl-num" style="color:var(--bleu)">${fmtN(totDComp)}</td>
+      <td class="tbl-num" style="color:var(--ocre)">${fmtN(totDCash)}</td>
+      <td class="tbl-num">${fmtN(totDComp+totDCash)}</td>
+      <td class="tbl-num" style="color:var(--rouge)">${fmtN(totDep)}</td>
+      <td class="tbl-num" style="color:${soldeGlob>=0?'var(--eco)':'var(--rouge)'}">${soldeGlob>=0?'+':''}${fmtN(soldeGlob)}</td>
+    </tr>`;
+  }
+}
+
+function deleteDepot(id) {
+  if (!confirm('Supprimer ce dépôt ?')) return;
+  DB.depots = DB.depots.filter(d=>d.id!==id);
+  save(); renderDepots(); updateBadges();
+}
+
+function exportExcelDepots() {
+  loadSheetJS(()=>{
+    const wb = XLSX.utils.book_new();
+
+    // Feuille 1 : Dépôts bancaires
+    const rowsComp = [
+      ['ECOBUILD — DÉPÔTS SUR COMPTE BANCAIRE'],
+      [`Édité le : ${new Date().toLocaleDateString('fr-FR')}`],
+      [],
+      ['Date','Montant (FCFA)','Banque','N° Compte','Projet','Déposant','Origine','N° Pièce','Observation'],
+      ...DB.depots.filter(d=>d.type==='compte').sort((a,b)=>a.date.localeCompare(b.date)).map(d=>[
+        d.date, d.montant, d.banque||'—', d.numcompte||'—',
+        projetById(d.projetId)?.ref||'—', d.deposant||'—',
+        d.origine||'—', d.piece||'—', d.obs||'—'
+      ]),
+      [],
+      ['','TOTAL',DB.depots.filter(d=>d.type==='compte').reduce((s,d)=>s+d.montant,0),'','','','','',''],
+    ];
+    const ws1 = XLSX.utils.aoa_to_sheet(rowsComp);
+    ws1['!cols']=[{wch:12},{wch:16},{wch:18},{wch:14},{wch:18},{wch:18},{wch:22},{wch:14},{wch:22}];
+    ws1['!merges']=[{s:{r:0,c:0},e:{r:0,c:8}}];
+    XLSX.utils.book_append_sheet(wb, ws1, 'Dépôts_Compte');
+
+    // Feuille 2 : Cash
+    const rowsCash = [
+      ['ECOBUILD — DÉPÔTS EN CAISSE (CASH)'],
+      [`Édité le : ${new Date().toLocaleDateString('fr-FR')}`],
+      [],
+      ['Date','Montant (FCFA)','Responsable caisse','Projet','Origine','N° Pièce','Observation'],
+      ...DB.depots.filter(d=>d.type==='cash').sort((a,b)=>a.date.localeCompare(b.date)).map(d=>[
+        d.date, d.montant, d.responsable||'—',
+        projetById(d.projetId)?.ref||'—',
+        d.origine||'—', d.piece||'—', d.obs||'—'
+      ]),
+      [],
+      ['','TOTAL',DB.depots.filter(d=>d.type==='cash').reduce((s,d)=>s+d.montant,0),'','','',''],
+    ];
+    const ws2 = XLSX.utils.aoa_to_sheet(rowsCash);
+    ws2['!cols']=[{wch:12},{wch:16},{wch:20},{wch:18},{wch:22},{wch:14},{wch:22}];
+    ws2['!merges']=[{s:{r:0,c:0},e:{r:0,c:6}}];
+    XLSX.utils.book_append_sheet(wb, ws2, 'Dépôts_Cash');
+
+    // Feuille 3 : Synthèse par projet
+    const rowsSynth = [
+      ['ECOBUILD — SYNTHÈSE TRÉSORERIE PAR PROJET'],
+      [`Édité le : ${new Date().toLocaleDateString('fr-FR')}`],
+      [],
+      ['Projet','Réf','Dépôts compte (FCFA)','Dépôts cash (FCFA)','Total déposé','Dépenses réelles','Solde trésorerie'],
+      ...DB.projets.map(p=>{
+        const dc=DB.depots.filter(d=>d.projetId===p.id&&d.type==='compte').reduce((s,d)=>s+d.montant,0);
+        const dh=DB.depots.filter(d=>d.projetId===p.id&&d.type==='cash').reduce((s,d)=>s+d.montant,0);
+        const dep=DB.depenses.filter(d=>d.projetId===p.id).reduce((s,d)=>s+d.montant,0);
+        return [p.nom,p.ref,dc,dh,dc+dh,dep,(dc+dh)-dep];
+      }),
+      [],
+      ['TOTAL','',
+        DB.depots.filter(d=>d.type==='compte').reduce((s,d)=>s+d.montant,0),
+        DB.depots.filter(d=>d.type==='cash').reduce((s,d)=>s+d.montant,0),
+        DB.depots.reduce((s,d)=>s+d.montant,0),
+        DB.depenses.reduce((s,d)=>s+d.montant,0),
+        DB.depots.reduce((s,d)=>s+d.montant,0)-DB.depenses.reduce((s,d)=>s+d.montant,0)
+      ],
+    ];
+    const ws3 = XLSX.utils.aoa_to_sheet(rowsSynth);
+    ws3['!cols']=[{wch:28},{wch:14},{wch:20},{wch:16},{wch:16},{wch:18},{wch:18}];
+    ws3['!merges']=[{s:{r:0,c:0},e:{r:0,c:6}}];
+    XLSX.utils.book_append_sheet(wb, ws3, 'Synthèse_Trésorerie');
+
+    XLSX.writeFile(wb, 'Ecobuild_depots_tresorerie.xlsx');
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  AUTHENTIFICATION & ACCÈS
+// ═══════════════════════════════════════════════
+
+// Modules disponibles avec libellé et icône
+const MODULES = [
+  { id:'dashboard',   label:'Tableau de bord', icon:'📊' },
+  { id:'projets',     label:'Projets',          icon:'🏗️' },
+  { id:'depenses',    label:'Dépenses',          icon:'💸' },
+  { id:'budget',      label:'Budget & Écarts',   icon:'📊' },
+  { id:'personnel',   label:'Personnel',          icon:'👷' },
+  { id:'fournisseurs',label:'Fournisseurs',       icon:'🏭' },
+  { id:'depots',      label:'Dépôts',             icon:'🏦' },
+  { id:'rapports',    label:'Rapports',           icon:'📈' },
+  { id:'export',      label:'Export Excel',       icon:'📥' },
+];
+
+// Presets par rôle
+const ROLE_PRESETS = {
+  admin:     { label:'Administrateur', all:true,  perms:MODULES.map(m=>m.id) },
+  chef:      { label:'Chef de projet', all:false, perms:['dashboard','projets','depenses','budget','personnel','fournisseurs','depots'] },
+  comptable: { label:'Comptable',      all:false, perms:['dashboard','depenses','budget','depots','rapports','export'] },
+  consultant:{ label:'Consultant',     all:false, perms:['dashboard','projets','budget','rapports'] },
+  custom:    { label:'Personnalisé',   all:false, perms:[] },
+};
+const ROLE_LABELS = { admin:'rb-admin', chef:'rb-chef', comptable:'rb-comptable', consultant:'rb-consultant', custom:'rb-lecture' };
+
+// ═══════════════════════════════════════════════
+//  STOCKAGE AUTH — version 3
+//  Firebase en priorité, localStorage en fallback
+// ═══════════════════════════════════════════════
+const AUTH_VER = 3;
+
+let _storageOK = false;
+(function detectStorage() {
+  try {
+    localStorage.setItem('__eco_test__', '1');
+    _storageOK = (localStorage.getItem('__eco_test__') === '1');
+    localStorage.removeItem('__eco_test__');
+  } catch(e) { _storageOK = false; }
+})();
+
+function saveAuth() {
+  const payload = { _v: AUTH_VER, users: AUTH.users, currentUser: AUTH.currentUser };
+  if (_authRef) {
+    _authRef.set(payload).catch(e => console.warn('Firebase saveAuth :', e));
+  } else if (_storageOK) {
+    try { localStorage.setItem('eco_auth', JSON.stringify(payload)); } catch(e) {}
+  }
+}
+
+// loadAuth() synchrone (localStorage fallback seulement)
+// Le chargement Firebase est asynchrone — voir initApp()
+function loadAuthLocal() {
+  if (!_storageOK) return false;
+  try {
+    const d = localStorage.getItem('eco_auth');
+    if (!d) return false;
+    const parsed = JSON.parse(d);
+    if (parsed._v === AUTH_VER) {
+      AUTH.users       = parsed.users       || [];
+      AUTH.currentUser = parsed.currentUser || null;
+      return true;
+    } else {
+      localStorage.removeItem('eco_auth');
+      return false;
+    }
+  } catch(e) { localStorage.removeItem('eco_auth'); return false; }
+}
+
+function ensureAdminUser() {
+  if (!AUTH.users.length) {
+    AUTH.users.push({
+      id:'u0', nom:'Administrateur', login:'admin',
+      pass:'ecobuild2025',
+      role:'admin', perms:MODULES.map(m=>m.id),
+      createdAt:today(), lastLogin:null, active:true
+    });
+    saveAuth();
+  }
+}
+
+function showStorageWarning() {
+  if (_dbRef) return; // Firebase actif — pas besoin d'avertir
+  let persists = false;
+  if (_storageOK) {
+    try {
+      localStorage.setItem('__eco_persist__', 'ok');
+      persists = (localStorage.getItem('__eco_persist__') === 'ok');
+      localStorage.removeItem('__eco_persist__');
+    } catch(e) {}
+  }
+  if (persists) return;
+  const banner = document.createElement('div');
+  banner.style.cssText = [
+    'position:fixed','top:0','left:0','right:0','z-index:99999',
+    'background:#B91C1C','color:#fff','text-align:center',
+    'padding:10px 16px','font-size:.79rem','font-weight:600',
+    'box-shadow:0 2px 10px rgba(0,0,0,.3)'
+  ].join(';');
+  banner.innerHTML = '⚠️ Sauvegarde locale bloquée — les données seront perdues au rechargement. '
+    + 'Configurez Firebase pour une utilisation multi-utilisateur. '
+    + '<button onclick="this.parentElement.remove()" style="margin-left:12px;background:rgba(255,255,255,.25);'
+    + 'border:none;color:#fff;padding:2px 10px;border-radius:4px;cursor:pointer;font-weight:700">✕</button>';
+  document.body.appendChild(banner);
+}
+
+let AUTH = { users:[], currentUser:null };
+let currentUser = null;
+
+function doLogin() {
+  const login = document.getElementById('login-user').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  const err   = document.getElementById('login-err');
+  const u = AUTH.users.find(u => u.login === login && u.pass === pass && u.active);
+  if (!u) { err.style.display='block'; return; }
+  err.style.display='none';
+  currentUser = u;
+  AUTH.currentUser = u.id;
+  u.lastLogin = new Date().toLocaleString('fr-FR');
+  saveAuth();
+  document.getElementById('login-screen').style.display='none';
+  applyAccess();
+}
+
+function doLogout() {
+  if (!confirm('Se déconnecter ?')) return;
+  currentUser = null;
+  AUTH.currentUser = null;
+  saveAuth();
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('login-user').value='';
+  document.getElementById('login-pass').value='';
+}
+
+function togglePassVis() {
+  const f = document.getElementById('login-pass');
+  f.type = (f.type === 'password') ? 'text' : 'password';
+}
+
+function resetAllAuth() {
+  if (!confirm('⚠️ Réinitialisation complète des accès.\n\nTous les comptes seront supprimés et remplacés par le compte admin par défaut (admin / ecobuild2025).\n\nLes données (projets, dépenses…) NE sont PAS effacées.\n\nContinuer ?')) return;
+  if (_storageOK) localStorage.removeItem('eco_auth');
+  AUTH = { users:[], currentUser:null };
+  AUTH.users.push({
+    id:'u0', nom:'Administrateur', login:'admin',
+    pass:'ecobuild2025',
+    role:'admin', perms:MODULES.map(m=>m.id),
+    createdAt:today(), lastLogin:null, active:true
+  });
+  saveAuth(); // écrit dans Firebase ou localStorage selon ce qui est configuré
+  alert('✅ Réinitialisé. Connectez-vous avec admin / ecobuild2025');
+}
+
+// Déconnecter Firebase et afficher l'écran de reconfiguration
+function reconfigureFirebase() {
+  if (!confirm('Reconfigurer Firebase ?\nVous serez déconnecté de l\'application.')) return;
+  localStorage.removeItem('eco_firebase_cfg');
+  location.reload();
+}
+
+function isAdmin() { return currentUser?.role === 'admin'; }
+
+function hasAccess(module) {
+  if (!currentUser) return false;
+  if (isAdmin()) return true;
+  return (currentUser.perms||[]).includes(module);
+}
+
+function applyAccess() {
+  if (!currentUser) return;
+
+  // Bandeau utilisateur sidebar
+  document.getElementById('user-avatar').textContent = (currentUser.nom||'?')[0].toUpperCase();
+  document.getElementById('user-name').textContent   = currentUser.nom;
+  document.getElementById('user-role').textContent   = ROLE_PRESETS[currentUser.role]?.label || currentUser.role;
+
+  // Afficher/masquer boutons nav selon permissions
+  const navMap = {
+    'dashboard':'go(\'dashboard\')', 'projets':'go(\'projets\')',
+    'depenses':'go(\'depenses\')',   'budget':'go(\'budget\')',
+    'personnel':'go(\'personnel\')', 'fournisseurs':'go(\'fournisseurs\')',
+    'depots':'go(\'depots\')',       'rapports':'go(\'rapports\')',
+  };
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    const oc = btn.getAttribute('onclick')||'';
+    for (const [mod, pat] of Object.entries(navMap)) {
+      if (oc.includes("'"+mod+"'")) {
+        btn.style.display = hasAccess(mod) ? '' : 'none';
+      }
+    }
+    // Export Excel
+    if (oc.includes('exportExcel()')) {
+      btn.style.display = hasAccess('export') ? '' : 'none';
+    }
+  });
+
+  // Admin : afficher section admin
+  const adminGroup = document.getElementById('nav-admin-group');
+  const adminBtn   = document.getElementById('nav-admin-btn');
+  if (isAdmin()) {
+    adminGroup.style.display = '';
+    adminBtn.style.display   = '';
+    // Ajouter admin dans META si absent
+    if (!META.admin) META.admin = { title:'Accès & Utilisateurs', badge:'🔑 Administration' };
+  }
+
+  // Bouton Export topbar
+  const topExport = document.querySelector('.tb-right .btn-ocre');
+  if (topExport) topExport.style.display = hasAccess('export') ? '' : 'none';
+
+  // Aller sur dashboard par défaut
+  if (hasAccess('dashboard')) go('dashboard');
+  else {
+    // Aller sur le premier module accessible
+    const first = MODULES.find(m => hasAccess(m.id));
+    if (first) go(first.id);
+  }
+}
+
+// Protège go() — empêche d'accéder à un module non autorisé
+const _go_orig = go;
+go = function(name) {
+  if (name === 'admin') {
+    if (!isAdmin()) { alert('Accès réservé à l\'administrateur.'); return; }
+    _go_orig(name);
+    renderAdmin();
+    return;
+  }
+  if (!hasAccess(name) && name !== 'admin') {
+    // Afficher overlay verrou sur la vue
+    _go_orig(name);
+    showLockOverlay(name);
+    return;
+  }
+  _go_orig(name);
+};
+
+function showLockOverlay(name) {
+  const view = document.getElementById('view-'+name);
+  if (!view) return;
+  // Retirer overlay existant
+  view.querySelectorAll('.lock-overlay').forEach(e=>e.remove());
+  const ov = document.createElement('div');
+  ov.className = 'lock-overlay';
+  ov.innerHTML = `<div class="lock-icon">🔒</div><p>Accès non autorisé</p><p style="font-size:.72rem;opacity:.7;margin-top:4px">Contactez l'administrateur</p>`;
+  view.style.position='relative';
+  view.appendChild(ov);
+}
+
+// ═══════════════════════════════════════════════
+//  ADMIN — GESTION UTILISATEURS
+// ═══════════════════════════════════════════════
+
+function buildPermChecks(selectedPerms) {
+  const wrap = document.getElementById('perm-checks');
+  if (!wrap) return;
+  wrap.innerHTML = MODULES.map(m => `
+    <label class="perm-cb">
+      <input type="checkbox" value="${m.id}" ${selectedPerms.includes(m.id)?'checked':''}
+        onchange="customizePerms()"/>
+      ${m.icon} ${m.label}
+    </label>`).join('');
+}
+
+function applyRolePreset() {
+  const role = document.getElementById('u-role')?.value;
+  const preset = ROLE_PRESETS[role];
+  if (!preset) return;
+  buildPermChecks(preset.perms);
+}
+
+function customizePerms() {
+  // Passer en mode custom si on modifie manuellement
+  const sel = document.getElementById('u-role');
+  if (sel && sel.value !== 'custom') sel.value = 'custom';
+}
+
+function getCheckedPerms() {
+  return [...document.querySelectorAll('#perm-checks input:checked')].map(i=>i.value);
+}
+
+function resetUserForm() {
+  ['u-nom','u-login','u-pass'].forEach(id=>{ const e=document.getElementById(id); if(e)e.value=''; });
+  const r=document.getElementById('u-role'); if(r){r.value='chef'; applyRolePreset();}
+}
+
+function addUser() {
+  const nom   = document.getElementById('u-nom').value.trim();
+  const login = document.getElementById('u-login').value.trim();
+  const pass  = document.getElementById('u-pass').value;
+  const role  = document.getElementById('u-role').value;
+  if (!nom||!login||!pass) { alert('Remplissez nom, identifiant et mot de passe.'); return; }
+  if (AUTH.users.find(u=>u.login===login)) { alert('Cet identifiant existe déjà.'); return; }
+  const perms = getCheckedPerms();
+  AUTH.users.push({
+    id:'u'+Date.now(), nom, login, pass,
+    role, perms, createdAt:today(), lastLogin:null, active:true
+  });
+  saveAuth();
+  resetUserForm();
+  renderAdmin();
+  alert(`Utilisateur "${nom}" créé avec succès.`);
+}
+
+function deleteUser(id) {
+  if (id==='u0'||AUTH.users.find(u=>u.id===id)?.login==='admin') { alert('Impossible de supprimer l\'administrateur principal.'); return; }
+  if (!confirm('Supprimer cet utilisateur ?')) return;
+  AUTH.users = AUTH.users.filter(u=>u.id!==id);
+  saveAuth(); renderAdmin();
+}
+
+function toggleUser(id) {
+  const u = AUTH.users.find(u=>u.id===id);
+  if (!u) return;
+  if (u.login==='admin') { alert('Impossible de désactiver l\'administrateur principal.'); return; }
+  u.active = !u.active;
+  saveAuth(); renderAdmin();
+}
+
+function updateUserPerms(id) {
+  const u = AUTH.users.find(u=>u.id===id);
+  if (!u) return;
+  const newPerms = [];
+  MODULES.forEach(m=>{
+    const cb = document.getElementById('perm-'+id+'-'+m.id);
+    if (cb&&cb.checked) newPerms.push(m.id);
+  });
+  u.perms = newPerms;
+  // Mettre à jour rôle si changement
+  const roleSel = document.getElementById('role-sel-'+id);
+  if (roleSel) u.role = roleSel.value;
+  saveAuth();
+  // Si c'est l'utilisateur connecté, mettre à jour ses perms en live
+  if (currentUser && currentUser.id === id) {
+    currentUser.perms = newPerms;
+    currentUser.role  = u.role;
+    applyAccess();
+  }
+  alert('Permissions mises à jour.');
+}
+
+function changePassword() {
+  const uid  = document.getElementById('chg-user').value;
+  const p1   = document.getElementById('chg-pass').value;
+  const p2   = document.getElementById('chg-pass2').value;
+  if (!uid)      { alert('Sélectionnez un utilisateur.'); return; }
+  if (!p1)       { alert('Entrez un nouveau mot de passe.'); return; }
+  if (p1 !== p2) { alert('Les mots de passe ne correspondent pas.'); return; }
+  const u = AUTH.users.find(u=>u.id===uid);
+  if (u) { u.pass = p1; saveAuth(); alert('Mot de passe modifié avec succès.'); }
+  document.getElementById('chg-pass').value='';
+  document.getElementById('chg-pass2').value='';
+}
+
+function renderAdmin() {
+  // KPIs
+  document.getElementById('adm-nb').textContent      = AUTH.users.filter(u=>u.active).length;
+  document.getElementById('adm-admins').textContent  = AUTH.users.filter(u=>u.role==='admin'&&u.active).length;
+  document.getElementById('adm-limited').textContent = AUTH.users.filter(u=>u.role!=='admin'&&u.active).length;
+  const last = [...AUTH.users].filter(u=>u.lastLogin).sort((a,b)=>b.lastLogin?.localeCompare(a.lastLogin))[0];
+  document.getElementById('adm-last').textContent = last ? last.nom.split(' ')[0] : '—';
+
+  // Tableau utilisateurs
+  const tb = document.getElementById('users-tbody');
+  if (!tb) return;
+  if (!AUTH.users.length) { tb.innerHTML='<tr><td colspan="13" style="text-align:center;padding:24px;color:var(--gris-l)">Aucun utilisateur</td></tr>'; return; }
+
+  const pIcon = (has) => has
+    ? '<span style="color:var(--eco);font-size:.85rem">✅</span>'
+    : '<span style="color:var(--border);font-size:.85rem">—</span>';
+
+  tb.innerHTML = AUTH.users.map(u => {
+    const p = (mod) => u.role==='admin' || u.perms.includes(mod);
+    return `<tr style="${!u.active?'opacity:.5':''}">
+      <td><strong>${u.nom}</strong>${u.lastLogin?`<br><small style="color:var(--gris-l)">${u.lastLogin}</small>`:''}</td>
+      <td><code style="background:var(--ivoire);padding:2px 6px;border-radius:3px;font-size:.75rem">${u.login}</code></td>
+      <td>
+        <select id="role-sel-${u.id}" style="font-size:.72rem;padding:2px 5px;border:1px solid var(--border);border-radius:4px;background:var(--ivoire)">
+          ${Object.entries(ROLE_PRESETS).map(([k,v])=>`<option value="${k}" ${u.role===k?'selected':''}>${v.label}</option>`).join('')}
+        </select>
+      </td>
+      ${MODULES.map(m=>`<td style="text-align:center">
+        <input type="checkbox" id="perm-${u.id}-${m.id}" ${p(m.id)?'checked':''}
+          style="width:14px;height:14px;accent-color:var(--eco)"
+          ${u.login==='admin'?'disabled':''}>
+      </td>`).join('')}
+      <td class="actions no-print">
+        <button class="btn btn-xs btn-eco" onclick="updateUserPerms('${u.id}')">💾</button>
+        <button class="btn btn-xs btn-sec" onclick="toggleUser('${u.id}')">${u.active?'🔇':'✅'}</button>
+        <button class="btn btn-xs btn-sec" onclick="deleteUser('${u.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Select changement mdp
+  const chgSel = document.getElementById('chg-user');
+  if (chgSel) chgSel.innerHTML = '<option value="">-- Choisir --</option>' +
+    AUTH.users.map(u=>`<option value="${u.id}">${u.nom} (${u.login})</option>`).join('');
+
+  // Init perm-checks du formulaire de création
+  buildPermChecks(ROLE_PRESETS[document.getElementById('u-role')?.value||'chef']?.perms||[]);
+}
+
+// ═══════════════════════════════════════════════
+//  MODAL ÉDITION
+// ═══════════════════════════════════════════════
+function openModal(title, bodyHTML) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHTML;
+  document.getElementById('edit-modal').style.display = 'flex';
+}
+function closeModal() {
+  document.getElementById('edit-modal').style.display = 'none';
+}
+
+// ── Modifier une dépense ──────────────────────────
+function editDep(id) {
+  const d = DB.depenses.find(x=>x.id===id);
+  if (!d) return;
+  const projetOpts = DB.projets.map(p=>`<option value="${p.id}" ${d.projetId===p.id?'selected':''}>${p.ref} — ${p.nom}</option>`).join('');
+  const fourOpts   = DB.fournisseurs.map(f=>`<option value="${f.id}" ${d.fourId===f.id?'selected':''}>${f.nom}</option>`).join('');
+  const cats = [{v:'mo',l:'🟢 Main d\'œuvre'},{v:'mat',l:'🟡 Matériaux'},{v:'ss',l:'🟣 Sous-traitant'},{v:'eq',l:'🔵 Équipement'},{v:'fg',l:'⚪ Frais généraux'}];
+  const modes = ['Espèces','Virement','Chèque','Mobile Money','Crédit'];
+  openModal('✏️ Modifier la dépense', `
+    <div class="form-row c4">
+      <div class="field"><label>Projet</label><select id="ed-projet"><option value="">-- Projet --</option>${projetOpts}</select></div>
+      <div class="field"><label>Catégorie</label><select id="ed-cat">${cats.map(c=>`<option value="${c.v}" ${d.cat===c.v?'selected':''}>${c.l}</option>`).join('')}</select></div>
+      <div class="field"><label>Date</label><input id="ed-date" type="date" value="${d.date}"/></div>
+      <div class="field"><label>Fournisseur</label><select id="ed-four"><option value="">-- Fournisseur --</option>${fourOpts}</select></div>
+    </div>
+    <div class="form-row c4">
+      <div class="field"><label>Désignation</label><input id="ed-label" value="${d.label.replace(/"/g,'&quot;')}"/></div>
+      <div class="field"><label>Quantité</label><input id="ed-qte" type="number" value="${d.qte}" step="0.01" min="0"/></div>
+      <div class="field"><label>Prix unitaire (FCFA)</label><input id="ed-pu" type="number" value="${d.pu}" min="0"/></div>
+      <div class="field"><label>Mode paiement</label><select id="ed-mode">${modes.map(m=>`<option ${d.mode===m?'selected':''}>${m}</option>`).join('')}</select></div>
+    </div>
+    <div class="form-row c2">
+      <div class="field"><label>N° Pièce</label><input id="ed-piece" value="${(d.piece||'').replace(/"/g,'&quot;')}"/></div>
+      <div class="field"><label>Observation</label><input id="ed-obs" value="${(d.obs||'').replace(/"/g,'&quot;')}"/></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-eco" onclick="saveDep('${id}')">💾 Enregistrer</button>
+      <button class="btn btn-sec" onclick="closeModal()">Annuler</button>
+    </div>`);
+}
+function saveDep(id) {
+  const d = DB.depenses.find(x=>x.id===id);
+  if (!d) return;
+  const projetId = document.getElementById('ed-projet').value;
+  if (!projetId) { alert('Sélectionnez un projet.'); return; }
+  const label = document.getElementById('ed-label').value.trim();
+  if (!label) { alert('Entrez une désignation.'); return; }
+  const qte = parseFloat(document.getElementById('ed-qte').value)||0;
+  const pu  = parseFloat(document.getElementById('ed-pu').value)||0;
+  const fourId = document.getElementById('ed-four').value;
+  d.projetId = projetId;
+  d.cat      = document.getElementById('ed-cat').value;
+  d.date     = document.getElementById('ed-date').value||today();
+  d.fourId   = fourId;
+  d.fourNom  = fourById(fourId)?.nom||'—';
+  d.label    = label;
+  d.qte      = qte; d.pu = pu; d.montant = qte*pu;
+  d.mode     = document.getElementById('ed-mode').value;
+  d.piece    = document.getElementById('ed-piece').value;
+  d.obs      = document.getElementById('ed-obs').value;
+  save(); closeModal(); renderDepenses();
+  if (currentView==='dashboard') setTimeout(renderCharts,80);
+}
+
+// ── Modifier un projet ────────────────────────────
+function editProjet(id) {
+  const p = projetById(id);
+  if (!p) return;
+  const types = ['Bâtiment','Route / VRD','Infrastructure','Rénovation','Terrassement','Autre'];
+  openModal('✏️ Modifier le projet', `
+    <div class="form-row c4">
+      <div class="field"><label>Référence</label><input id="ep-ref" value="${p.ref.replace(/"/g,'&quot;')}"/></div>
+      <div class="field"><label>Nom du projet</label><input id="ep-nom" value="${p.nom.replace(/"/g,'&quot;')}"/></div>
+      <div class="field"><label>Type</label><select id="ep-type">${types.map(t=>`<option ${p.type===t?'selected':''}>${t}</option>`).join('')}</select></div>
+      <div class="field"><label>Maître d'ouvrage</label><input id="ep-moa" value="${(p.moa||'').replace(/"/g,'&quot;')}"/></div>
+    </div>
+    <div class="form-row c4">
+      <div class="field"><label>Lieu</label><input id="ep-lieu" value="${(p.lieu||'').replace(/"/g,'&quot;')}"/></div>
+      <div class="field"><label>Chef de projet</label><input id="ep-chef" value="${(p.chef||'').replace(/"/g,'&quot;')}"/></div>
+      <div class="field"><label>Date début</label><input id="ep-debut" type="date" value="${p.debut||''}"/></div>
+      <div class="field"><label>Date fin prévue</label><input id="ep-fin" type="date" value="${p.fin||''}"/></div>
+    </div>
+    <div style="margin-bottom:8px;font-size:.68rem;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.5px">Budget prévisionnel par catégorie (FCFA)</div>
+    <div class="form-row c5">
+      <div class="field"><label>🟢 Main d'œuvre</label><input id="ep-mo" type="number" value="${p.budget.mo||0}" min="0"/></div>
+      <div class="field"><label>🟡 Matériaux</label><input id="ep-mat" type="number" value="${p.budget.mat||0}" min="0"/></div>
+      <div class="field"><label>🟣 Sous-traitants</label><input id="ep-ss" type="number" value="${p.budget.ss||0}" min="0"/></div>
+      <div class="field"><label>🔵 Équipements</label><input id="ep-eq" type="number" value="${p.budget.eq||0}" min="0"/></div>
+      <div class="field"><label>⚪ Frais généraux</label><input id="ep-fg" type="number" value="${p.budget.fg||0}" min="0"/></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Description</label><textarea id="ep-desc">${p.desc||''}</textarea></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-eco" onclick="saveProjet('${id}')">💾 Enregistrer</button>
+      <button class="btn btn-sec" onclick="closeModal()">Annuler</button>
+    </div>`);
+}
+function saveProjet(id) {
+  const p = projetById(id);
+  if (!p) return;
+  const nom = document.getElementById('ep-nom').value.trim();
+  if (!nom) { alert('Entrez un nom de projet.'); return; }
+  p.ref  = document.getElementById('ep-ref').value.trim()||p.ref;
+  p.nom  = nom;
+  p.type = document.getElementById('ep-type').value;
+  p.moa  = document.getElementById('ep-moa').value;
+  p.lieu = document.getElementById('ep-lieu').value;
+  p.chef = document.getElementById('ep-chef').value;
+  p.debut= document.getElementById('ep-debut').value;
+  p.fin  = document.getElementById('ep-fin').value;
+  p.desc = document.getElementById('ep-desc').value;
+  const mo=parseFloat(document.getElementById('ep-mo').value)||0;
+  const mat=parseFloat(document.getElementById('ep-mat').value)||0;
+  const ss=parseFloat(document.getElementById('ep-ss').value)||0;
+  const eq=parseFloat(document.getElementById('ep-eq').value)||0;
+  const fg=parseFloat(document.getElementById('ep-fg').value)||0;
+  p.budget={mo,mat,ss,eq,fg};
+  p.budgetTotal=mo+mat+ss+eq+fg;
+  save(); closeModal(); renderProjets(); refreshSelects();
+  if (currentView==='dashboard') setTimeout(renderCharts,80);
+}
+
+// ── Modifier un agent ──────────────────────────────
+function editPers(id) {
+  const p = DB.personnel.find(x=>x.id===id);
+  if (!p) return;
+  const projetOpts = DB.projets.map(pr=>`<option value="${pr.id}" ${p.projetId===pr.id?'selected':''}>${pr.ref} — ${pr.nom}</option>`).join('');
+  const fons = ['Ingénieur BTP','Chef de chantier','Maçon','Manœuvre','Conducteur engins','Électricien','Plombier','Autre'];
+  const stats = ['Actif','Congé','Fin de contrat'];
+  openModal('✏️ Modifier l\'agent', `
+    <div class="form-row c4">
+      <div class="field"><label>Nom & Prénom</label><input id="ep2-nom" value="${p.nom.replace(/"/g,'&quot;')}"/></div>
+      <div class="field"><label>Fonction</label><select id="ep2-fon">${fons.map(f=>`<option ${p.fon===f?'selected':''}>${f}</option>`).join('')}</select></div>
+      <div class="field"><label>Téléphone</label><input id="ep2-tel" value="${(p.tel||'').replace(/"/g,'&quot;')}"/></div>
+      <div class="field"><label>Salaire journalier (FCFA)</label><input id="ep2-sal" type="number" value="${p.sal||0}" min="0"/></div>
+    </div>
+    <div class="form-row c2">
+      <div class="field"><label>Projet affecté</label><select id="ep2-projet"><option value="">-- Aucun --</option>${projetOpts}</select></div>
+      <div class="field"><label>Statut</label><select id="ep2-statut">${stats.map(s=>`<option ${p.statut===s?'selected':''}>${s}</option>`).join('')}</select></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-eco" onclick="savePers('${id}')">💾 Enregistrer</button>
+      <button class="btn btn-sec" onclick="closeModal()">Annuler</button>
+    </div>`);
+}
+function savePers(id) {
+  const p = DB.personnel.find(x=>x.id===id);
+  if (!p) return;
+  const nom = document.getElementById('ep2-nom').value.trim();
+  if (!nom) { alert('Entrez un nom.'); return; }
+  p.nom     = nom;
+  p.fon     = document.getElementById('ep2-fon').value;
+  p.tel     = document.getElementById('ep2-tel').value;
+  p.sal     = parseFloat(document.getElementById('ep2-sal').value)||0;
+  p.projetId= document.getElementById('ep2-projet').value;
+  p.statut  = document.getElementById('ep2-statut').value;
+  save(); closeModal(); renderPersonnel();
+}
+
+// ── Modifier un fournisseur ───────────────────────
+function editFour(id) {
+  const f = DB.fournisseurs.find(x=>x.id===id);
+  if (!f) return;
+  const specs = ['Matériaux construction','Main d\'œuvre spécialisée','Location engins','Transport','Électricité','Plomberie','Sous-traitant BTP','Autre'];
+  openModal('✏️ Modifier le fournisseur', `
+    <div class="form-row c4">
+      <div class="field"><label>Raison sociale</label><input id="ef-nom" value="${f.nom.replace(/"/g,'&quot;')}"/></div>
+      <div class="field"><label>Spécialité</label><select id="ef-spec">${specs.map(s=>`<option ${f.spec===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Contact</label><input id="ef-contact" value="${(f.contact||'').replace(/"/g,'&quot;')}"/></div>
+      <div class="field"><label>Téléphone</label><input id="ef-tel" value="${(f.tel||'').replace(/"/g,'&quot;')}"/></div>
+    </div>
+    <div class="form-row c2">
+      <div class="field"><label>Ville</label><input id="ef-ville" value="${(f.ville||'').replace(/"/g,'&quot;')}"/></div>
+      <div class="field"><label>Email</label><input id="ef-email" type="email" value="${(f.email||'').replace(/"/g,'&quot;')}"/></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-eco" onclick="saveFour('${id}')">💾 Enregistrer</button>
+      <button class="btn btn-sec" onclick="closeModal()">Annuler</button>
+    </div>`);
+}
+function saveFour(id) {
+  const f = DB.fournisseurs.find(x=>x.id===id);
+  if (!f) return;
+  const nom = document.getElementById('ef-nom').value.trim();
+  if (!nom) { alert('Entrez un nom.'); return; }
+  f.nom     = nom;
+  f.spec    = document.getElementById('ef-spec').value;
+  f.contact = document.getElementById('ef-contact').value;
+  f.tel     = document.getElementById('ef-tel').value;
+  f.ville   = document.getElementById('ef-ville').value;
+  f.email   = document.getElementById('ef-email').value;
+  save(); closeModal(); renderFournisseurs(); refreshSelects();
+}
+
+// ── Modifier un dépôt ──────────────────────────────
+function editDepot(id) {
+  const d = DB.depots.find(x=>x.id===id);
+  if (!d) return;
+  const projetOpts = DB.projets.map(p=>`<option value="${p.id}" ${d.projetId===p.id?'selected':''}>${p.ref} — ${p.nom}</option>`).join('');
+  let fields = '';
+  if (d.type === 'compte') {
+    const origines = ['Client / Maître d\'ouvrage','Apport personnel','Emprunt bancaire','Subvention','Transfert interne','Autre'];
+    fields = `
+      <div class="form-row c4">
+        <div class="field"><label>Date</label><input id="edt-date" type="date" value="${d.date}"/></div>
+        <div class="field"><label>Montant (FCFA)</label><input id="edt-montant" type="number" value="${d.montant}" min="0"/></div>
+        <div class="field"><label>Banque</label><input id="edt-banque" value="${(d.banque||'').replace(/"/g,'&quot;')}"/></div>
+        <div class="field"><label>N° Compte</label><input id="edt-numcompte" value="${(d.numcompte||'').replace(/"/g,'&quot;')}"/></div>
+      </div>
+      <div class="form-row c4">
+        <div class="field"><label>Projet</label><select id="edt-projet"><option value="">-- Aucun --</option>${projetOpts}</select></div>
+        <div class="field"><label>Déposant</label><input id="edt-deposant" value="${(d.deposant||'').replace(/"/g,'&quot;')}"/></div>
+        <div class="field"><label>N° Pièce</label><input id="edt-piece" value="${(d.piece||'').replace(/"/g,'&quot;')}"/></div>
+        <div class="field"><label>Origine</label><select id="edt-origine">${origines.map(o=>`<option ${d.origine===o?'selected':''}>${o}</option>`).join('')}</select></div>
+      </div>
+      <div class="field" style="margin-bottom:12px"><label>Observation</label><input id="edt-obs" value="${(d.obs||'').replace(/"/g,'&quot;')}"/></div>`;
+  } else {
+    const origines = ['Client / Maître d\'ouvrage','Retrait bancaire','Apport personnel','Remboursement','Autre'];
+    fields = `
+      <div class="form-row c4">
+        <div class="field"><label>Date</label><input id="edt-date" type="date" value="${d.date}"/></div>
+        <div class="field"><label>Montant (FCFA)</label><input id="edt-montant" type="number" value="${d.montant}" min="0"/></div>
+        <div class="field"><label>Responsable caisse</label><input id="edt-deposant" value="${(d.responsable||'').replace(/"/g,'&quot;')}"/></div>
+        <div class="field"><label>Projet</label><select id="edt-projet"><option value="">-- Aucun --</option>${projetOpts}</select></div>
+      </div>
+      <div class="form-row c3">
+        <div class="field"><label>N° Pièce</label><input id="edt-piece" value="${(d.piece||'').replace(/"/g,'&quot;')}"/></div>
+        <div class="field"><label>Origine</label><select id="edt-origine">${origines.map(o=>`<option ${d.origine===o?'selected':''}>${o}</option>`).join('')}</select></div>
+        <div class="field"><label>Observation</label><input id="edt-obs" value="${(d.obs||'').replace(/"/g,'&quot;')}"/></div>
+      </div>`;
+  }
+  openModal(`✏️ Modifier le dépôt ${d.type==='compte'?'bancaire':'cash'}`, fields + `
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-eco" onclick="saveDepot('${id}')">💾 Enregistrer</button>
+      <button class="btn btn-sec" onclick="closeModal()">Annuler</button>
+    </div>`);
+}
+function saveDepot(id) {
+  const d = DB.depots.find(x=>x.id===id);
+  if (!d) return;
+  const montant = parseFloat(document.getElementById('edt-montant').value)||0;
+  if (!montant) { alert('Entrez un montant.'); return; }
+  d.date    = document.getElementById('edt-date').value||today();
+  d.montant = montant;
+  d.projetId= document.getElementById('edt-projet').value;
+  d.piece   = document.getElementById('edt-piece').value;
+  d.origine = document.getElementById('edt-origine').value;
+  d.obs     = document.getElementById('edt-obs').value;
+  if (d.type === 'compte') {
+    d.banque    = document.getElementById('edt-banque').value;
+    d.numcompte = document.getElementById('edt-numcompte').value;
+    d.deposant  = document.getElementById('edt-deposant').value;
+  } else {
+    d.responsable = document.getElementById('edt-deposant').value;
+  }
+  save(); closeModal(); renderDepots();
+  if (currentView==='dashboard') setTimeout(renderCharts,80);
+}
+
+// ═══════════════════════════════════════════════
+//  MOTEUR GRAPHIQUES CANVAS (sans librairie)
+// ═══════════════════════════════════════════════
+const CHT = {}; // registre des états des charts
+let chartTabState = { bvr:'abs', month:'6', stack:'abs' };
+
+function switchChartTab(chart, mode) {
+  chartTabState[chart] = mode;
+  // Mettre à jour les boutons
+  document.querySelectorAll('[id^="ct-'+chart+'-"]').forEach(b => {
+    b.classList.toggle('active', b.id === 'ct-'+chart+'-'+mode);
+  });
+  renderCharts();
+}
+
+// Palette couleurs graphiques
+const GCOLS = {
+  eco:    '#1B4F3A', eco2:'#2E7D5E', eco3:'#4CAF8A',
+  ocre:   '#C9892A', ocre2:'#E8B85A',
+  rouge:  '#B91C1C', rouge2:'#EF4444',
+  bleu:   '#1D4ED8', bleu2:'#60A5FA',
+  violet: '#6D28D9', violet2:'#A78BFA',
+  gris:   '#6B7280', gris2:'#D1D5DB',
+};
+const CAT_COLORS = {
+  mo:'#2E7D5E', mat:'#C9892A', ss:'#6D28D9', eq:'#1D4ED8', fg:'#6B7280'
+};
+const PROJ_COLORS = ['#1B4F3A','#C9892A','#1D4ED8','#B91C1C','#6D28D9','#2E7D5E','#E8B85A','#EF4444'];
+
+// Helpers canvas
+function ctx2(id) {
+  const c = document.getElementById(id);
+  if (!c) return null;
+  const wrap = c.parentElement;
+  c.width  = wrap.clientWidth  || 400;
+  c.height = wrap.clientHeight || 220;
+  const cx = c.getContext('2d');
+  cx.clearRect(0, 0, c.width, c.height);
+  return { cx, W:c.width, H:c.height };
+}
+
+function fmtShort(n) {
+  if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(1)+'M';
+  if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(0)+'k';
+  return Math.round(n).toString();
+}
+
+// ── Graphique en barres groupées ──────────────────
+function drawBarChart(id, labels, datasets, opts) {
+  const g = ctx2(id);
+  if (!g) return;
+  const { cx, W, H } = g;
+  opts = opts||{};
+  const pad = { top:20, right:16, bottom:50, left:60 };
+  const chartW = W - pad.left - pad.right;
+  const chartH = H - pad.top  - pad.bottom;
+  const nGroups = labels.length;
+  const nSets   = datasets.length;
+  if (!nGroups) { drawEmpty(cx, W, H, 'Aucune donnée'); return; }
+
+  const allVals = datasets.flatMap(d=>d.data);
+  const maxV = Math.max(...allVals, 1);
+  const minV = opts.allowNeg ? Math.min(...allVals, 0) : 0;
+  const range = maxV - minV || 1;
+
+  // Grille
+  cx.strokeStyle = '#E5E7EB'; cx.lineWidth = 1;
+  const nLines = 4;
+  for (let i=0; i<=nLines; i++) {
+    const y = pad.top + chartH - (i/nLines)*chartH;
+    cx.beginPath(); cx.moveTo(pad.left, y); cx.lineTo(pad.left+chartW, y); cx.stroke();
+    const val = minV + (i/nLines)*range;
+    cx.fillStyle='#9CA3AF'; cx.font='10px Inter,sans-serif'; cx.textAlign='right';
+    cx.fillText(fmtShort(val), pad.left-4, y+3);
+  }
+
+  // Zéro si négatif possible
+  if (opts.allowNeg) {
+    const y0 = pad.top + chartH - (0-minV)/range*chartH;
+    cx.strokeStyle='#374151'; cx.lineWidth=1.5;
+    cx.beginPath(); cx.moveTo(pad.left,y0); cx.lineTo(pad.left+chartW,y0); cx.stroke();
+    cx.lineWidth=1;
+  }
+
+  const groupW = chartW / nGroups;
+  const barW   = Math.max(4, (groupW / (nSets+1)) * 0.85);
+  const gap    = (groupW - barW*nSets) / (nSets+1);
+
+  datasets.forEach((ds, si) => {
+    cx.fillStyle = ds.color || PROJ_COLORS[si % PROJ_COLORS.length];
+    ds.data.forEach((val, gi) => {
+      const x  = pad.left + gi*groupW + gap + si*(barW+gap/nSets);
+      const y0 = pad.top + chartH - (0-minV)/range*chartH;
+      const bH = Math.abs(val-minV)/range*chartH;
+      const y  = val >= 0 ? y0-bH : y0;
+      cx.beginPath();
+      const r = Math.min(3, barW/3);
+      if (val>=0) {
+        cx.moveTo(x+r,y); cx.lineTo(x+barW-r,y);
+        cx.quadraticCurveTo(x+barW,y,x+barW,y+r);
+        cx.lineTo(x+barW,y+bH); cx.lineTo(x,y+bH);
+        cx.lineTo(x,y+r); cx.quadraticCurveTo(x,y,x+r,y);
+      } else {
+        cx.rect(x,y,barW,bH);
+      }
+      cx.fill();
+      // Valeur au-dessus si place
+      if (bH > 14) {
+        cx.fillStyle='rgba(0,0,0,0.6)'; cx.font='bold 9px Inter,sans-serif'; cx.textAlign='center';
+        cx.fillText(fmtShort(val), x+barW/2, val>=0?y-3:y+bH+10);
+        cx.fillStyle = ds.color || PROJ_COLORS[si];
+      }
+    });
+  });
+
+  // Labels axe X
+  cx.fillStyle='#4B5563'; cx.font='10px Inter,sans-serif'; cx.textAlign='center';
+  labels.forEach((lbl, gi) => {
+    const x = pad.left + gi*groupW + groupW/2;
+    const short = lbl.length>10 ? lbl.slice(0,9)+'…' : lbl;
+    cx.fillText(short, x, H - pad.bottom + 14);
+  });
+}
+
+// ── Graphique barres horizontales ─────────────────
+function drawHBarChart(id, labels, vals, colors, opts) {
+  const g = ctx2(id);
+  if (!g) return;
+  const { cx, W, H } = g;
+  opts = opts||{};
+  const pad = { top:10, right:70, bottom:16, left:110 };
+  const chartW = W - pad.left - pad.right;
+  const chartH = H - pad.top  - pad.bottom;
+  if (!labels.length) { drawEmpty(cx, W, H, 'Aucune donnée'); return; }
+
+  const maxV = Math.max(...vals.map(Math.abs), 1);
+  const barH = Math.max(8, chartH / labels.length - 6);
+
+  labels.forEach((lbl, i) => {
+    const y   = pad.top + i*(chartH/labels.length) + (chartH/labels.length - barH)/2;
+    const val = vals[i];
+    const col = colors ? colors[i] : (val>=0 ? GCOLS.eco : GCOLS.rouge);
+    const bW  = Math.abs(val)/maxV * chartW * (val>=0?1:0.5);
+    const x   = val>=0 ? pad.left : pad.left + chartW/2 - bW;
+
+    // Barre
+    cx.fillStyle = col;
+    cx.beginPath();
+    const r = Math.min(3, barH/3);
+    cx.roundRect ? cx.roundRect(x, y, bW, barH, r) : cx.rect(x, y, bW, barH);
+    cx.fill();
+
+    // Label gauche
+    cx.fillStyle='#374151'; cx.font='bold 10px Inter,sans-serif'; cx.textAlign='right';
+    const short = lbl.length>14 ? lbl.slice(0,13)+'…' : lbl;
+    cx.fillText(short, pad.left-6, y+barH/2+3);
+
+    // Valeur droite
+    cx.fillStyle=col; cx.font='bold 10px Inter,sans-serif'; cx.textAlign='left';
+    cx.fillText(fmtShort(val)+' FCFA', x+bW+4, y+barH/2+3);
+  });
+}
+
+// ── Donut ─────────────────────────────────────────
+function drawDonut(id, labels, vals, colors) {
+  const g = ctx2(id);
+  if (!g) return;
+  const { cx, W, H } = g;
+  const total = vals.reduce((a,b)=>a+b,0);
+  if (!total) { drawEmpty(cx, W, H, 'Aucune dépense'); return; }
+
+  const cx0 = W/2, cy0 = H/2;
+  const R = Math.min(W, H)/2 - 10;
+  const r = R * 0.55;
+  let angle = -Math.PI/2;
+
+  vals.forEach((v, i) => {
+    const sweep = (v/total) * 2 * Math.PI;
+    cx.beginPath();
+    cx.moveTo(cx0 + r*Math.cos(angle), cy0 + r*Math.sin(angle));
+    cx.arc(cx0, cy0, R, angle, angle+sweep);
+    cx.arc(cx0, cy0, r, angle+sweep, angle, true);
+    cx.closePath();
+    cx.fillStyle = colors[i];
+    cx.fill();
+    cx.strokeStyle='#fff'; cx.lineWidth=2; cx.stroke();
+
+    // Pourcentage si slice assez grande
+    if (sweep > 0.25) {
+      const mid = angle + sweep/2;
+      const tx = cx0 + (r+(R-r)/2)*Math.cos(mid);
+      const ty = cy0 + (r+(R-r)/2)*Math.sin(mid);
+      cx.fillStyle='#fff'; cx.font='bold 10px Inter,sans-serif'; cx.textAlign='center';
+      cx.fillText(Math.round(v/total*100)+'%', tx, ty+4);
+    }
+    angle += sweep;
+  });
+
+  // Centre : total
+  cx.fillStyle='#1F2937'; cx.font='bold 12px Cormorant Garamond,serif'; cx.textAlign='center';
+  cx.fillText(fmtShort(total), cx0, cy0-2);
+  cx.fillStyle='#9CA3AF'; cx.font='9px Inter,sans-serif';
+  cx.fillText('FCFA', cx0, cy0+11);
+}
+
+// ── Graphique aires (ligne + remplissage) ─────────
+function drawAreaChart(id, labels, datasets) {
+  const g = ctx2(id);
+  if (!g) return;
+  const { cx, W, H } = g;
+  const pad = { top:20, right:16, bottom:40, left:58 };
+  const chartW = W - pad.left - pad.right;
+  const chartH = H - pad.top  - pad.bottom;
+  if (!labels.length) { drawEmpty(cx, W, H, 'Aucune donnée'); return; }
+
+  const allVals = datasets.flatMap(d=>d.data);
+  const maxV = Math.max(...allVals, 1);
+  const step = chartW / Math.max(labels.length-1, 1);
+
+  // Grille
+  cx.strokeStyle='#E5E7EB'; cx.lineWidth=1;
+  for (let i=0; i<=4; i++) {
+    const y = pad.top + chartH - (i/4)*chartH;
+    cx.beginPath(); cx.moveTo(pad.left,y); cx.lineTo(pad.left+chartW,y); cx.stroke();
+    cx.fillStyle='#9CA3AF'; cx.font='9px Inter,sans-serif'; cx.textAlign='right';
+    cx.fillText(fmtShort(maxV*i/4), pad.left-4, y+3);
+  }
+
+  datasets.forEach(ds => {
+    const pts = ds.data.map((v,i)=>({ x: pad.left+i*step, y: pad.top+chartH-(v/maxV)*chartH }));
+
+    // Aire
+    cx.beginPath();
+    cx.moveTo(pts[0].x, pad.top+chartH);
+    pts.forEach(p => cx.lineTo(p.x, p.y));
+    cx.lineTo(pts[pts.length-1].x, pad.top+chartH);
+    cx.closePath();
+    cx.fillStyle = ds.color.replace(')',',0.15)').replace('rgb','rgba').replace('#',
+      'rgba('+parseInt(ds.color.slice(1,3),16)+','+parseInt(ds.color.slice(3,5),16)+','+parseInt(ds.color.slice(5,7),16)+',');
+    // Simplifié : fillStyle semi-transparent
+    cx.globalAlpha=0.18; cx.fillStyle=ds.color; cx.fill(); cx.globalAlpha=1;
+
+    // Ligne
+    cx.beginPath();
+    pts.forEach((p,i) => i===0 ? cx.moveTo(p.x,p.y) : cx.lineTo(p.x,p.y));
+    cx.strokeStyle=ds.color; cx.lineWidth=2.5; cx.lineJoin='round'; cx.stroke();
+
+    // Points
+    pts.forEach(p => {
+      cx.beginPath(); cx.arc(p.x,p.y,4,0,2*Math.PI);
+      cx.fillStyle='#fff'; cx.fill();
+      cx.strokeStyle=ds.color; cx.lineWidth=2; cx.stroke();
+    });
+  });
+
+  // Labels X
+  cx.fillStyle='#6B7280'; cx.font='9px Inter,sans-serif'; cx.textAlign='center';
+  labels.forEach((lbl, i) => {
+    cx.fillText(lbl, pad.left + i*step, H - pad.bottom + 12);
+  });
+}
+
+// ── Barres empilées (100% ou absolues) ────────────
+function drawStackedBar(id, labels, datasets, pct) {
+  const g = ctx2(id);
+  if (!g) return;
+  const { cx, W, H } = g;
+  const pad = { top:20, right:16, bottom:50, left:58 };
+  const chartW = W - pad.left - pad.right;
+  const chartH = H - pad.top  - pad.bottom;
+  if (!labels.length) { drawEmpty(cx, W, H, 'Aucune donnée'); return; }
+
+  // Totaux par groupe
+  const totals = labels.map((_,gi) => datasets.reduce((s,ds)=>s+(ds.data[gi]||0),0));
+  const maxV   = pct ? 100 : Math.max(...totals, 1);
+
+  // Grille
+  cx.strokeStyle='#E5E7EB'; cx.lineWidth=1;
+  for (let i=0; i<=4; i++) {
+    const y = pad.top + chartH - (i/4)*chartH;
+    cx.beginPath(); cx.moveTo(pad.left,y); cx.lineTo(pad.left+chartW,y); cx.stroke();
+    cx.fillStyle='#9CA3AF'; cx.font='9px Inter,sans-serif'; cx.textAlign='right';
+    cx.fillText(pct ? (i*25)+'%' : fmtShort(maxV*i/4), pad.left-4, y+3);
+  }
+
+  const barW  = Math.max(8, (chartW/labels.length) * 0.6);
+  const grpW  = chartW/labels.length;
+
+  labels.forEach((lbl, gi) => {
+    const total = totals[gi] || 1;
+    let yBottom = pad.top + chartH;
+    const x = pad.left + gi*grpW + (grpW-barW)/2;
+
+    datasets.forEach((ds, si) => {
+      const raw = ds.data[gi] || 0;
+      const v   = pct ? raw/total*100 : raw;
+      const bH  = (v/maxV)*chartH;
+      const y   = yBottom - bH;
+      cx.fillStyle = ds.color;
+      const r = si===datasets.length-1 ? Math.min(3,barW/3) : 0;
+      cx.beginPath();
+      if (r > 0) {
+        cx.moveTo(x+r,y); cx.lineTo(x+barW-r,y);
+        cx.quadraticCurveTo(x+barW,y,x+barW,y+r);
+        cx.lineTo(x+barW,yBottom); cx.lineTo(x,yBottom);
+        cx.lineTo(x,y+r); cx.quadraticCurveTo(x,y,x+r,y);
+      } else {
+        cx.rect(x,y,barW,bH);
+      }
+      cx.fill();
+      yBottom = y;
+    });
+
+    // Label X
+    cx.fillStyle='#4B5563'; cx.font='9px Inter,sans-serif'; cx.textAlign='center';
+    const short = lbl.length>8 ? lbl.slice(0,7)+'…' : lbl;
+    cx.fillText(short, x+barW/2, H - pad.bottom + 13);
+  });
+}
+
+function drawEmpty(cx, W, H, msg) {
+  cx.fillStyle='#D1D5DB'; cx.font='13px Inter,sans-serif'; cx.textAlign='center';
+  cx.fillText('📭', W/2, H/2-8);
+  cx.fillText(msg, W/2, H/2+14);
+}
+
+function makeLegend(elId, items) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = items.map(it=>
+    `<div class="leg-item"><div class="leg-dot" style="background:${it.color}"></div>${it.label}</div>`
+  ).join('');
+}
+
+// ── Rendu de tous les graphiques ──────────────────
+function renderCharts() {
+  const projets  = DB.projets;
+  const depenses = DB.depenses;
+  const depots   = DB.depots;
+
+  // ─ 1. Budget vs Dépenses par projet ─
+  if (projets.length) {
+    const labels = projets.map(p => p.ref||p.nom.slice(0,8));
+    if (chartTabState.bvr === 'abs') {
+      const budData = projets.map(p => p.budgetTotal);
+      const depData = projets.map(p => depenses.filter(d=>d.projetId===p.id).reduce((s,d)=>s+d.montant,0));
+      drawBarChart('chart-bvr', labels, [
+        { label:'Budget prévu', data:budData, color:GCOLS.ocre },
+        { label:'Dépensé',      data:depData, color:GCOLS.eco2 },
+      ]);
+      makeLegend('leg-bvr',[{color:GCOLS.ocre,label:'Budget prévu'},{color:GCOLS.eco2,label:'Dépensé'}]);
+    } else {
+      const pctData = projets.map(p => {
+        const d = depenses.filter(x=>x.projetId===p.id).reduce((s,x)=>s+x.montant,0);
+        return p.budgetTotal ? Math.round(d/p.budgetTotal*100) : 0;
+      });
+      drawBarChart('chart-bvr', labels, [
+        { label:'% Consommé', data:pctData, color:GCOLS.eco },
+      ]);
+      makeLegend('leg-bvr',[{color:GCOLS.eco,label:'% Consommé'}]);
+    }
+  } else {
+    const g=ctx2('chart-bvr'); if(g) drawEmpty(g.cx,g.W,g.H,'Créez des projets');
+  }
+
+  // ─ 2. Donut dépenses par catégorie ─
+  const catTotaux = Object.entries(CATS).map(([k,c])=>({
+    label:c.label,
+    val:depenses.filter(d=>d.cat===k).reduce((s,d)=>s+d.montant,0),
+    color:CAT_COLORS[k]
+  })).filter(x=>x.val>0);
+  if (catTotaux.length) {
+    drawDonut('chart-donut', catTotaux.map(x=>x.label), catTotaux.map(x=>x.val), catTotaux.map(x=>x.color));
+    makeLegend('leg-donut', catTotaux.map(x=>({color:x.color,label:x.label})));
+  } else {
+    const g=ctx2('chart-donut'); if(g) drawEmpty(g.cx,g.W,g.H,'Aucune dépense');
+  }
+
+  // ─ 3. Entrées & Sorties mensuelles ─
+  const nbMois = chartTabState.month === '12' ? 12 : 6;
+  const moisLabels = [];
+  const moisDep = [], moisEnt = [];
+  const now = new Date();
+  for (let i=nbMois-1; i>=0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    const key = d.toISOString().slice(0,7);
+    moisLabels.push(key.slice(2));
+    moisDep.push(depenses.filter(x=>x.date?.startsWith(key)).reduce((s,x)=>s+x.montant,0));
+    moisEnt.push(depots.filter(x=>x.date?.startsWith(key)).reduce((s,x)=>s+x.montant,0));
+  }
+  drawAreaChart('chart-monthly', moisLabels, [
+    { label:'Dépôts (entrées)', data:moisEnt, color:GCOLS.eco  },
+    { label:'Dépenses (sorties)', data:moisDep, color:GCOLS.rouge },
+  ]);
+  makeLegend('leg-monthly',[
+    {color:GCOLS.eco,  label:'Dépôts (entrées)'},
+    {color:GCOLS.rouge,label:'Dépenses (sorties)'},
+  ]);
+
+  // ─ 4. Dépenses par catégorie & projet (empilées) ─
+  if (projets.length) {
+    const labels4 = projets.map(p => p.ref||p.nom.slice(0,8));
+    const datasets4 = Object.entries(CATS).map(([k,c])=>({
+      label:c.label,
+      data:projets.map(p => depenses.filter(d=>d.projetId===p.id&&d.cat===k).reduce((s,d)=>s+d.montant,0)),
+      color:CAT_COLORS[k],
+    })).filter(ds=>ds.data.some(v=>v>0));
+    if (datasets4.length) {
+      drawStackedBar('chart-stack', labels4, datasets4, chartTabState.stack==='pct');
+      makeLegend('leg-stack', datasets4.map(d=>({color:d.color,label:d.label})));
+    } else {
+      const g=ctx2('chart-stack'); if(g) drawEmpty(g.cx,g.W,g.H,'Aucune dépense saisie');
+    }
+  } else {
+    const g=ctx2('chart-stack'); if(g) drawEmpty(g.cx,g.W,g.H,'Créez des projets');
+  }
+
+  // ─ 5. Solde trésorerie par projet (horizontal) ─
+  if (projets.length) {
+    const labels5  = projets.map(p => p.ref||p.nom.slice(0,12));
+    const vals5    = projets.map(p => {
+      const ent = depots.filter(d=>d.projetId===p.id).reduce((s,d)=>s+d.montant,0);
+      const dep = depenses.filter(d=>d.projetId===p.id).reduce((s,d)=>s+d.montant,0);
+      return ent - dep;
+    });
+    const cols5 = vals5.map(v => v>=0 ? GCOLS.eco : GCOLS.rouge);
+    drawHBarChart('chart-solde', labels5, vals5, cols5, {allowNeg:true});
+    const hasDef = vals5.some(v=>v<0);
+    makeLegend('leg-solde',[
+      {color:GCOLS.eco,  label:'Solde positif'},
+      ...(hasDef?[{color:GCOLS.rouge,label:'Déficit'}]:[]),
+    ]);
+  } else {
+    const g=ctx2('chart-solde'); if(g) drawEmpty(g.cx,g.W,g.H,'Créez des projets');
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  INIT ASYNCHRONE (Firebase ou localStorage)
+// ═══════════════════════════════════════════════
+function finishInit() {
+  // Initialisation DOM commune (après chargement des données)
+  refreshSelects();
+  updateBadges();
+  document.getElementById('sb-date').textContent =
+    new Date().toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'long',year:'numeric'});
+  document.getElementById('dep-date').value = today();
+  document.getElementById('dc-date').value  = today();
+  document.getElementById('dh-date').value  = today();
+  buildPermChecks(ROLE_PRESETS['chef'].perms);
+  applyRolePreset();
+
+  // Restaurer la session en cours
+  const savedUid = AUTH.currentUser;
+  if (savedUid) {
+    const savedUser = AUTH.users.find(u => u.id === savedUid && u.active);
+    if (savedUser) {
+      currentUser = savedUser;
+      document.getElementById('login-screen').style.display = 'none';
+      applyAccess();
+      go('dashboard');
+    }
+  }
+
+  // Touche Entrée sur le champ login
+  document.getElementById('login-user').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('login-pass').focus();
+  });
+
+  // Indicateur Firebase dans le pied de la sidebar
+  const fbIndicator = document.createElement('div');
+  fbIndicator.style.cssText = 'font-size:.6rem;margin-top:4px;padding:3px 8px;border-radius:4px;display:inline-block';
+  if (_dbRef) {
+    fbIndicator.style.background = '#D1FAE5';
+    fbIndicator.style.color      = '#1B4F3A';
+    fbIndicator.innerHTML        = '🔥 Firebase connecté — <a href="#" onclick="reconfigureFirebase();return false;" style="color:inherit;font-weight:700">reconfigurer</a>';
+  } else {
+    fbIndicator.style.background = '#FEF3C7';
+    fbIndicator.style.color      = '#92400E';
+    fbIndicator.innerHTML        = '⚠️ Mode local — <a href="#" onclick="location.reload();return false;" style="color:inherit;font-weight:700">configurer Firebase</a>';
+  }
+  const sbFoot = document.querySelector('.sb-foot');
+  if (sbFoot) sbFoot.appendChild(fbIndicator);
+}
+
+async function initApp() {
+  // 1. Charger la config Firebase depuis localStorage
+  loadFbConfig();
+
+  // 2. Si pas de config → afficher l'écran de configuration
+  if (!isFirebaseConfigured()) {
+    document.getElementById('firebase-setup').style.display = 'flex';
+    // Fallback : charger depuis localStorage pour usage local éventuel
+    load();
+    loadAuthLocal();
+    ensureAdminUser();
+    showStorageWarning();
+    finishInit();
+    return;
+  }
+
+  // 3. Initialiser Firebase
+  const fbOK = initFirebase();
+  if (!fbOK) {
+    // Erreur d'init (mauvaise config ?) — afficher l'écran de reconfiguration
+    document.getElementById('firebase-setup').style.display = 'flex';
+    load();
+    loadAuthLocal();
+    ensureAdminUser();
+    finishInit();
+    return;
+  }
+
+  // 4. Charger les données depuis Firebase (async)
+  try {
+    const [dbSnap, authSnap] = await Promise.all([
+      _dbRef.once('value'),
+      _authRef.once('value'),
+    ]);
+
+    // Données de l'application
+    if (dbSnap.exists() && dbSnap.val()) {
+      const remoteDB = dbSnap.val();
+      // Fusionner les clés pour ne pas perdre une table vide non stockée
+      DB.projets      = remoteDB.projets      || [];
+      DB.depenses     = remoteDB.depenses     || [];
+      DB.personnel    = remoteDB.personnel    || [];
+      DB.fournisseurs = remoteDB.fournisseurs || [];
+      DB.depots       = remoteDB.depots       || [];
+    }
+
+    // Comptes utilisateurs
+    if (authSnap.exists() && authSnap.val()) {
+      const remoteAuth = authSnap.val();
+      if (remoteAuth._v === AUTH_VER) {
+        AUTH.users       = remoteAuth.users       || [];
+        AUTH.currentUser = remoteAuth.currentUser || null;
+      }
+    }
+
+    ensureAdminUser();
+
+    // 5. Écouter les changements en temps réel (autres utilisateurs)
+    _dbRef.on('value', snap => {
+      if (!snap.exists()) return;
+      const r = snap.val();
+      DB.projets      = r.projets      || [];
+      DB.depenses     = r.depenses     || [];
+      DB.personnel    = r.personnel    || [];
+      DB.fournisseurs = r.fournisseurs || [];
+      DB.depots       = r.depots       || [];
+      updateBadges();
+      refreshSelects();
+      // Re-rendre la vue active si ce n'est pas une saisie en cours
+      if (currentView && document.activeElement.tagName !== 'INPUT'
+                       && document.activeElement.tagName !== 'TEXTAREA'
+                       && document.activeElement.tagName !== 'SELECT') {
+        go(currentView);
+      }
+    });
+
+    // Auth en temps réel (pour voir les nouveaux comptes créés par l'admin)
+    _authRef.on('value', snap => {
+      if (!snap.exists()) return;
+      const r = snap.val();
+      if (r._v === AUTH_VER) {
+        AUTH.users = r.users || [];
+        // Ne pas écraser AUTH.currentUser — géré par la session locale
+      }
+    });
+
+  } catch(e) {
+    console.error('Erreur chargement Firebase :', e);
+    // Fallback localStorage si Firebase inaccessible
+    load();
+    loadAuthLocal();
+    ensureAdminUser();
+    const banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#D97706;color:#fff;text-align:center;padding:8px 16px;font-size:.78rem;font-weight:600';
+    banner.innerHTML = '⚠️ Impossible de joindre Firebase — fonctionnement en mode local temporaire. '
+      + '<button onclick="location.reload()" style="margin-left:10px;background:rgba(255,255,255,.25);border:none;color:#fff;padding:2px 10px;border-radius:4px;cursor:pointer;font-weight:700">Réessayer</button>';
+    document.body.appendChild(banner);
+  }
+
+  finishInit();
+}
+
+// Lancer l'application
+initApp();
+</script>
+</body>
+</html>
