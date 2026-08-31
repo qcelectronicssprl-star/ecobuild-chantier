@@ -956,6 +956,30 @@ body{font-family:'Inter',sans-serif;background:var(--ivoire);color:var(--nuit);m
     <div class="kpi violet"><div class="kpi-label">Dernière connexion</div><div class="kpi-val" id="adm-last" style="font-size:1rem">—</div><div class="kpi-sub">Utilisateur actif</div></div>
   </div>
 
+  <!-- Migration localStorage → Firebase -->
+  <div class="card no-print" id="migration-card" style="border:2px solid var(--ocre);background:var(--ocre-pale)">
+    <div class="card-head" style="background:var(--ocre-pale);border-bottom:1px solid var(--ocre-l)">
+      <h3 style="color:var(--ocre)">📦 Migration des données locales vers Firebase</h3>
+    </div>
+    <div class="card-body">
+      <p style="font-size:.82rem;color:var(--nuit);margin-bottom:12px">
+        Si vous utilisiez l'ancienne version de l'application (données stockées dans ce navigateur), cliquez sur le bouton ci-dessous pour transférer toutes vos données (projets, dépenses, personnel, fournisseurs, dépôts et comptes utilisateurs) vers Firebase afin qu'elles soient accessibles sur tous les appareils.
+      </p>
+      <p style="font-size:.75rem;color:var(--gris);margin-bottom:14px">
+        ⚠️ <strong>Attention :</strong> Cette action remplacera les données actuellement dans Firebase. Ne l'effectuez qu'une seule fois, depuis le navigateur qui contenait les données.
+      </p>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <button class="btn btn-eco" onclick="migrateLocalToFirebase()" id="btn-migrate">
+          🚀 Transférer mes données vers Firebase
+        </button>
+        <button class="btn btn-sec" onclick="document.getElementById('migration-card').style.display='none'">
+          ✖ Masquer (données déjà migrées)
+        </button>
+        <span id="migrate-status" style="font-size:.8rem;font-weight:600"></span>
+      </div>
+    </div>
+  </div>
+
   <!-- Créer un utilisateur -->
   <div class="card no-print">
     <div class="card-head"><h3>➕ Créer un compte utilisateur</h3></div>
@@ -3182,6 +3206,75 @@ function renderCharts() {
 // ═══════════════════════════════════════════════
 //  INIT ASYNCHRONE (Firebase ou localStorage)
 // ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+//  MIGRATION localStorage → Firebase
+// ═══════════════════════════════════════════════
+async function migrateLocalToFirebase() {
+  if (!_dbRef || !_authRef) {
+    alert('❌ Firebase n\'est pas connecté. Impossible de migrer les données.');
+    return;
+  }
+
+  const statusEl = document.getElementById('migrate-status');
+  const btnEl    = document.getElementById('btn-migrate');
+
+  // Lire les données locales
+  const rawDB   = localStorage.getItem('ecobuild');
+  const rawAuth = localStorage.getItem('eco_auth');
+
+  if (!rawDB && !rawAuth) {
+    statusEl.style.color = '#D97706';
+    statusEl.textContent = '⚠️ Aucune donnée locale trouvée dans ce navigateur.';
+    return;
+  }
+
+  const confirmed = confirm(
+    'Cette action va transférer toutes vos données locales vers Firebase et remplacer les données actuelles en ligne.\n\nContinuer ?'
+  );
+  if (!confirmed) return;
+
+  btnEl.disabled = true;
+  statusEl.style.color = '#1B4F3A';
+  statusEl.textContent = '⏳ Migration en cours…';
+
+  try {
+    // --- Données de l'application ---
+    if (rawDB) {
+      const localDB = JSON.parse(rawDB);
+      await _dbRef.set({
+        projets:      localDB.projets      || [],
+        depenses:     localDB.depenses     || [],
+        personnel:    localDB.personnel    || [],
+        fournisseurs: localDB.fournisseurs || [],
+        depots:       localDB.depots       || [],
+      });
+    }
+
+    // --- Comptes utilisateurs ---
+    if (rawAuth) {
+      const localAuth = JSON.parse(rawAuth);
+      // Accepter l'ancien format (v1/v2) ou le format actuel
+      const users = localAuth.users || localAuth || [];
+      await _authRef.set({
+        _v:          AUTH_VER,
+        users:       Array.isArray(users) ? users : [],
+        currentUser: null,
+      });
+    }
+
+    statusEl.style.color = '#1B4F3A';
+    statusEl.textContent = '✅ Migration réussie ! Rechargement…';
+
+    setTimeout(() => location.reload(), 1500);
+
+  } catch(e) {
+    console.error('Erreur migration :', e);
+    btnEl.disabled = false;
+    statusEl.style.color = '#B91C1C';
+    statusEl.textContent = '❌ Erreur : ' + (e.message || 'Vérifiez la console.');
+  }
+}
+
 function finishInit() {
   // Initialisation DOM commune (après chargement des données)
   refreshSelects();
@@ -3225,9 +3318,31 @@ function finishInit() {
   }
   const sbFoot = document.querySelector('.sb-foot');
   if (sbFoot) sbFoot.appendChild(fbIndicator);
+
+  // Afficher la carte de migration uniquement si des données locales existent
+  const migCard = document.getElementById('migration-card');
+  if (migCard) {
+    const hasLocal = localStorage.getItem('ecobuild') || localStorage.getItem('eco_auth');
+    if (!hasLocal) migCard.style.display = 'none';
+  }
 }
 
 async function initApp() {
+  // 0. Vérifier que le SDK Firebase est bien chargé
+  if (typeof firebase === 'undefined') {
+    console.warn('SDK Firebase non disponible — mode localStorage');
+    load();
+    loadAuthLocal();
+    ensureAdminUser();
+    const banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#D97706;color:#fff;text-align:center;padding:10px 16px;font-size:.82rem;font-weight:600';
+    banner.innerHTML = '⚠️ Firebase non disponible — vérifiez votre connexion internet et rechargez la page. '
+      + '<button onclick="location.reload()" style="margin-left:10px;background:rgba(255,255,255,.25);border:none;color:#fff;padding:3px 12px;border-radius:4px;cursor:pointer;font-weight:700">🔄 Recharger</button>';
+    document.body.appendChild(banner);
+    finishInit();
+    return;
+  }
+
   // 1. Charger la config Firebase depuis localStorage
   loadFbConfig();
 
